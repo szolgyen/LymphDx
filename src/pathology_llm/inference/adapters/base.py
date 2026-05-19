@@ -1,27 +1,21 @@
-from pathology_llm.inference.base import BaseModelAdapter
-from pathology_llm.schemas.validation import validate_pathology_output
+from abc import ABC, abstractmethod
+from typing import Optional
+
+from pathology_llm.schemas.pathology import PathologyExtraction
 
 
-class PlaceholderAdapter(BaseModelAdapter):
-    """Shared placeholder behavior for not-yet-implemented backends."""
+class BaseModelAdapter(ABC):
+    def __init__(self, allowed_diagnoses: Optional[set[str]] = None):
+        self.allowed_diagnoses = allowed_diagnoses
 
-    backend_name = "unknown"
-
-    def __init__(
-        self,
-        model: str,
-        decoder: str,
-        allowed_diagnoses: set[str] | None = None,
-    ):
-        super().__init__(allowed_diagnoses=allowed_diagnoses)
-        self.model = model
-        self.decoder = decoder
-
+    @abstractmethod
     def generate(self, prompt: str) -> str:
-        raise NotImplementedError(
-            "Backend integration is not implemented yet for "
-            f"backend='{self.backend_name}', model='{self.model}', decoder='{self.decoder}'."
-        )
+        """Return raw model output as string"""
 
-    def parse(self, raw: str):
-        return validate_pathology_output(raw, allowed_diagnoses=self.allowed_diagnoses)
+    def extract(self, prompt: str) -> PathologyExtraction:
+        raw = self.generate(prompt)
+        return self.parse(raw)
+
+    @abstractmethod
+    def parse(self, raw: str) -> PathologyExtraction:
+        """Convert raw output into validated schema"""

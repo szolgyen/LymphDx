@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from pathology_llm.inference.base import BaseModelAdapter
+from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.prompting.prompt_builder import build_extraction_prompt_from_template
 from pathology_llm.schemas.pathology import PathologyExtraction
 

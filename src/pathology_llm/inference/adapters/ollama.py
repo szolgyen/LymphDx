@@ -1,4 +1,4 @@
-from pathology_llm.inference.adapters.base import PlaceholderAdapter
+from pathology_llm.inference.adapters.placeholder import PlaceholderAdapter
 
 
 class OllamaAdapter(PlaceholderAdapter):

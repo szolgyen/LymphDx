@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from pathology_llm.extraction.pipeline import ExtractionPipeline
-from pathology_llm.inference.factory import create_adapter
+from pathology_llm.inference.adapters.factory import create_adapter
 from pathology_llm.utils.logging_config import configure_logging
 from pathology_llm.utils.utils import load_reports, load_diagnosis_terms, write_outputs
 

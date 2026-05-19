@@ -1,4 +1,4 @@
-from pathology_llm.inference.base import BaseModelAdapter
+from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.schemas.validation import validate_pathology_output
 
 

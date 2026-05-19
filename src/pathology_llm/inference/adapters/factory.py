@@ -1,13 +1,11 @@
 import logging
 
-from pathology_llm.inference.adapters import (
-    DummyAdapter,
-    HFAdapter,
-    OllamaAdapter,
-    SGLangAdapter,
-    VLLMAdapter,
-)
-from pathology_llm.inference.base import BaseModelAdapter
+from pathology_llm.inference.adapters.base import BaseModelAdapter
+from pathology_llm.inference.adapters.dummy import DummyAdapter
+from pathology_llm.inference.adapters.hf import HFAdapter
+from pathology_llm.inference.adapters.ollama import OllamaAdapter
+from pathology_llm.inference.adapters.sglang import SGLangAdapter
+from pathology_llm.inference.adapters.vllm import VLLMAdapter
 
 
 logger = logging.getLogger(__name__)

@@ -2,7 +2,9 @@ import json
 import logging
 from typing import Any
 
-from pathology_llm.inference.base import BaseModelAdapter
+from pathology_llm.inference.decoders.base import BaseDecoder
+from pathology_llm.inference.decoders.factory import create_decoder
+from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.schemas.validation import (
     SchemaValidationError,
     validate_pathology_output,
@@ -36,10 +38,17 @@ class HFAdapter(BaseModelAdapter):
             )
 
         self.model_name = model
-        self.decoder = decoder_name
+        self.decoder_name = decoder_name
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self.device_map = device_map
+        self._decoder: BaseDecoder = create_decoder(
+            backend=self.backend_name,
+            decoder_name=decoder_name,
+            allowed_diagnoses=allowed_diagnoses,
+            prompt_formatter=self._format_prompt_for_json,
+            logger=logger,
+        )
         self._tokenizer = None
         self._model = None
 
@@ -60,14 +69,14 @@ class HFAdapter(BaseModelAdapter):
         logger.info(
             "Loading HF model=%s decoder=%s device_map=%s",
             self.model_name,
-            self.decoder,
+            self.decoder_name,
             self.device_map,
         )
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
             device_map=self.device_map,
-            torch_dtype=torch_dtype,
+            dtype=torch_dtype,
         )
 
         if (
@@ -78,18 +87,24 @@ class HFAdapter(BaseModelAdapter):
 
     def generate(self, prompt: str) -> str:
         self._ensure_loaded()
-
-        if self.decoder == "guidance":
-            logger.warning(
-                "decoder='guidance' currently uses standard HF generation path; "
-                "generation-time constrained decoding is not yet wired."
-            )
+        self._decoder.validate_ready()
 
         import torch
 
         tokenizer = self._tokenizer
         model = self._model
-        prompt_for_model = self._format_prompt_for_json(prompt, tokenizer)
+
+        decoder_output = self._decoder.generate(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=prompt,
+            max_new_tokens=self.max_new_tokens,
+            temperature=self.temperature,
+        )
+        if decoder_output is not None:
+            return decoder_output
+
+        prompt_for_model = self._decoder.prepare_prompt(prompt, tokenizer)
         encoded = tokenizer(prompt_for_model, return_tensors="pt")
 
         # With non-sharded models, move inputs to model device.
@@ -103,6 +118,7 @@ class HFAdapter(BaseModelAdapter):
             "temperature": self.temperature if self.temperature > 0 else None,
             "pad_token_id": tokenizer.pad_token_id,
         }
+        generate_kwargs.update(self._decoder.get_generation_kwargs(tokenizer))
         generate_kwargs = {
             key: value for key, value in generate_kwargs.items() if value is not None
         }
