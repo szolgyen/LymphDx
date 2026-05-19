@@ -88,6 +88,10 @@ def main() -> int:
             allowed_diagnoses=allowed_diagnoses,
         )
         extraction_outputs = pipeline.extract_reports(reports)
+        if reports and not extraction_outputs:
+            raise RuntimeError(
+                "Extraction produced zero valid outputs; see logs for per-report errors"
+            )
         write_outputs(args.output_dir, [obj.model_dump() for obj in extraction_outputs])
         logger.info(
             "Pipeline completed successfully reports=%d output_dir=%s",
