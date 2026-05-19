@@ -1,6 +1,7 @@
 import pytest
 
 from pathology_llm.inference.adapters.hf import HFAdapter
+from pathology_llm.inference.decoders.hf_guidance import HFGuidanceDecoder
 from pathology_llm.schemas.validation import (
     DiagnosisConstraintError,
     SchemaValidationError,
@@ -61,3 +62,91 @@ def test_hf_adapter_parse_rejects_non_json():
 
     with pytest.raises(SchemaValidationError):
         adapter.parse("this is not json")
+
+
+def test_hf_guidance_decoder_requires_runtime():
+    decoder = HFGuidanceDecoder(
+        allowed_diagnoses={"Adenocarcinoma"},
+        runtime_available=False,
+    )
+
+    with pytest.raises(RuntimeError, match="requires the 'guidance' package"):
+        decoder.validate_ready()
+
+
+def test_hf_guidance_decoder_requires_allowed_diagnoses():
+    decoder = HFGuidanceDecoder(runtime_available=True)
+
+    with pytest.raises(ValueError, match="requires non-empty allowed_diagnoses"):
+        decoder.validate_ready()
+
+
+def test_hf_guidance_decoder_strict_prompt_contains_allowed_terms():
+    decoder = HFGuidanceDecoder(
+        allowed_diagnoses={"Adenocarcinoma", "DLBCL"},
+        runtime_available=True,
+    )
+
+    prompt = decoder.prepare_prompt("Extract the report", tokenizer=None)
+
+    assert "STRICT DECODER MODE" in prompt
+    assert "- Adenocarcinoma" in prompt
+    assert "- DLBCL" in prompt
+
+
+def test_hf_guidance_decoder_overrides_sampling_kwargs():
+    decoder = HFGuidanceDecoder(
+        allowed_diagnoses={"Adenocarcinoma"},
+        runtime_available=True,
+    )
+
+    kwargs = decoder.get_generation_kwargs(tokenizer=None)
+
+    assert kwargs["do_sample"] is False
+    assert kwargs["temperature"] is None
+
+
+def test_hf_guidance_decoder_schema_constrains_diagnoses():
+    decoder = HFGuidanceDecoder(
+        allowed_diagnoses={"Adenocarcinoma", "DLBCL"},
+        runtime_available=True,
+    )
+
+    schema = decoder._build_schema()
+
+    primary_any_of = schema["properties"]["diagnosis_primary"]["anyOf"]
+    primary_enum = next(item["enum"] for item in primary_any_of if "enum" in item)
+    secondary_enum = schema["properties"]["diagnosis_secondary"]["items"]["enum"]
+    assert primary_enum == ["Adenocarcinoma", "DLBCL"]
+    assert secondary_enum == ["Adenocarcinoma", "DLBCL"]
+
+
+def test_hf_adapter_uses_decoder_owned_generate_path(monkeypatch):
+    adapter = HFAdapter(
+        model="fake-model",
+        decoder="none",
+        allowed_diagnoses={"Adenocarcinoma"},
+    )
+
+    class _DecoderStub:
+        def validate_ready(self):
+            return None
+
+        def generate(self, **kwargs):
+            return _valid_payload(primary="Adenocarcinoma")
+
+        def prepare_prompt(self, prompt, tokenizer):
+            raise AssertionError(
+                "prepare_prompt should not be used when decoder generates"
+            )
+
+        def get_generation_kwargs(self, tokenizer):
+            return {}
+
+    adapter._decoder = _DecoderStub()
+    adapter._tokenizer = object()
+    adapter._model = object()
+
+    raw = adapter.generate("ignored prompt")
+
+    assert "Adenocarcinoma" in raw
