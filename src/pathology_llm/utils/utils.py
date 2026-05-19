@@ -1,0 +1,50 @@
+import json
+import logging
+from pathlib import Path
+
+
+logger = logging.getLogger(__name__)
+
+
+def load_reports(path: str) -> list[str]:
+    lines = Path(path).read_text(encoding="utf-8").splitlines()
+    reports = [line.strip() for line in lines if line.strip()]
+    if not reports:
+        raise ValueError(f"No reports found in {path}")
+    logger.info("Loaded %d reports from %s", len(reports), path)
+    return reports
+
+
+def load_diagnosis_terms(path: str | Path) -> set[str]:
+    """Load constrained diagnosis terms from a text file.
+
+    Expected format: one diagnosis term per line; empty lines and lines
+    starting with '#' are ignored.
+    """
+    terms: set[str] = set()
+    for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        terms.add(line)
+
+    if not terms:
+        raise ValueError(f"No diagnosis terms loaded from {path}")
+
+    logger.info("Loaded %d diagnosis terms from %s", len(terms), path)
+    return terms
+
+
+def write_outputs(output_dir: str, outputs: list[dict]) -> None:
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    jsonl_path = out_path / "predictions.jsonl"
+    with jsonl_path.open("w", encoding="utf-8") as f:
+        for idx, item in enumerate(outputs, start=1):
+            (out_path / f"case_{idx:04d}.json").write_text(
+                json.dumps(item, indent=2),
+                encoding="utf-8",
+            )
+            f.write(json.dumps(item) + "\n")
+    logger.info("Wrote %d outputs to %s", len(outputs), output_dir)

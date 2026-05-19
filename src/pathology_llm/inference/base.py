@@ -5,6 +5,8 @@ from pathology_llm.schemas.pathology import PathologyExtraction
 
 
 class BaseModelAdapter(ABC):
+    def __init__(self, allowed_diagnoses: Optional[set[str]] = None):
+        self.allowed_diagnoses = allowed_diagnoses
 
     @abstractmethod
     def generate(self, prompt: str) -> str:

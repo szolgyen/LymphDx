@@ -3,6 +3,7 @@ from pathology_llm.schemas.validation import validate_pathology_output
 
 
 class DummyAdapter(BaseModelAdapter):
+    """Dummy adapter for testing pipeline without real model inference."""
 
     def generate(self, prompt: str) -> str:
         # Simulated LLM output (intentionally imperfect realism)
@@ -25,4 +26,4 @@ class DummyAdapter(BaseModelAdapter):
         """
 
     def parse(self, raw: str):
-        return validate_pathology_output(raw)
+        return validate_pathology_output(raw, allowed_diagnoses=self.allowed_diagnoses)
