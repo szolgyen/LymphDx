@@ -8,7 +8,7 @@ from pathology_llm.inference.decoders.strict_json import StrictJsonDecoder
 
 
 class OutlinesDecoder(StrictJsonDecoder):
-    """Outlines decoder with HF support and placeholder behavior elsewhere."""
+    """Outlines decoder with HF and vLLM support."""
 
     name = "outlines"
 
@@ -33,7 +33,7 @@ class OutlinesDecoder(StrictJsonDecoder):
         self._generator_backend: str | None = None
 
     def validate_ready(self) -> None:
-        if self.backend != "hf":
+        if self.backend not in {"hf", "vllm"}:
             raise NotImplementedError(
                 "Decoder integration is not implemented yet for "
                 f"decoder='{self.name}', backend='{self.backend}'."
@@ -59,6 +59,14 @@ class OutlinesDecoder(StrictJsonDecoder):
         temperature: float,
     ) -> str | None:
         self.validate_ready()
+
+        if self.backend == "vllm":
+            return self._generate_with_vllm(
+                model=model,
+                tokenizer=tokenizer,
+                prompt=prompt,
+                max_new_tokens=max_new_tokens,
+            )
 
         from outlines.generator import Generator, JsonSchema
         from outlines.models import from_transformers
@@ -100,6 +108,68 @@ class OutlinesDecoder(StrictJsonDecoder):
         if isinstance(payload, str):
             return payload
         return json.dumps(payload)
+
+    def _generate_with_vllm(
+        self,
+        model: Any,
+        tokenizer: Any,
+        prompt: str,
+        max_new_tokens: int,
+    ) -> str:
+        import outlines.generate
+        import outlines.models
+        from outlines.samplers import greedy
+
+        prompt_for_model = self.prepare_prompt(prompt, tokenizer)
+        schema = self._build_schema()
+        model_name, model_params = self._resolve_vllm_model(model)
+        generator_key = (
+            self.backend,
+            model_name,
+            tuple(sorted(model_params.items())),
+        )
+        if self._generator is None or self._generator_key != generator_key:
+            outlines_model = outlines.models.vllm(model_name, **model_params)
+            self._generator = outlines.generate.json(
+                outlines_model,
+                schema,
+                sampler=greedy(),
+                whitespace_pattern=r"",
+            )
+            self._generator_backend = "outlines_vllm"
+            self._generator_key = generator_key
+
+        if self._logger is not None:
+            self._logger.info("Outlines decoding started backend=%s", self.backend)
+        started = time.perf_counter()
+        payload = self._generator(prompt_for_model, max_tokens=max_new_tokens)
+        if self._logger is not None:
+            self._logger.info(
+                "Outlines decoding finished in %.2fs backend=%s",
+                time.perf_counter() - started,
+                self.backend,
+            )
+
+        if isinstance(payload, str):
+            return payload
+        return json.dumps(payload)
+
+    @staticmethod
+    def _resolve_vllm_model(model: Any) -> tuple[str, dict[str, Any]]:
+        if not isinstance(model, dict):
+            raise TypeError(
+                "Outlines vLLM decoder expects model metadata as a dict with model_name"
+            )
+
+        model_name = model.get("model_name")
+        if not isinstance(model_name, str) or not model_name:
+            raise ValueError("Outlines vLLM decoder requires a non-empty model_name")
+
+        model_params = model.get("model_params") or {}
+        if not isinstance(model_params, dict):
+            raise TypeError("Outlines vLLM decoder model_params must be a dict")
+
+        return model_name, model_params
 
     def _build_generator(
         self,

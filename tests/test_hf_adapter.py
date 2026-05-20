@@ -171,14 +171,14 @@ def test_outlines_decoder_requires_allowed_diagnoses():
         decoder.validate_ready()
 
 
-def test_outlines_decoder_not_implemented_for_non_hf_backend():
+def test_outlines_decoder_not_implemented_for_unsupported_backend():
     decoder = OutlinesDecoder(
-        backend="vllm",
+        backend="ollama",
         allowed_diagnoses={"Adenocarcinoma"},
         runtime_available=True,
     )
 
-    with pytest.raises(NotImplementedError, match="backend='vllm'"):
+    with pytest.raises(NotImplementedError, match="backend='ollama'"):
         decoder.validate_ready()
 
 
