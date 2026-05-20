@@ -35,7 +35,9 @@ def create_decoder(
     if resolved_decoder == "outlines":
         return OutlinesDecoder(
             backend=backend_name,
+            allowed_diagnoses=allowed_diagnoses,
             prompt_formatter=prompt_formatter,
+            logger=logger,
         )
 
     if resolved_decoder == "sglang":

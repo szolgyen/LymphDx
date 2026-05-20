@@ -2,6 +2,7 @@ import pytest
 
 from pathology_llm.inference.adapters.hf import HFAdapter
 from pathology_llm.inference.decoders.hf_guidance import HFGuidanceDecoder
+from pathology_llm.inference.decoders.outlines import OutlinesDecoder
 from pathology_llm.schemas.validation import (
     DiagnosisConstraintError,
     SchemaValidationError,
@@ -54,7 +55,7 @@ def test_hf_adapter_parse_rejects_disallowed_diagnosis():
 
 def test_hf_adapter_rejects_unsupported_decoder():
     with pytest.raises(ValueError):
-        HFAdapter(model="fake-model", decoder="outlines")
+        HFAdapter(model="fake-model", decoder="sglang")
 
 
 def test_hf_adapter_parse_rejects_non_json():
@@ -150,3 +151,48 @@ def test_hf_adapter_uses_decoder_owned_generate_path(monkeypatch):
     raw = adapter.generate("ignored prompt")
 
     assert "Adenocarcinoma" in raw
+
+
+def test_outlines_decoder_requires_runtime():
+    decoder = OutlinesDecoder(
+        backend="hf",
+        allowed_diagnoses={"Adenocarcinoma"},
+        runtime_available=False,
+    )
+
+    with pytest.raises(RuntimeError, match="requires the 'outlines' package"):
+        decoder.validate_ready()
+
+
+def test_outlines_decoder_requires_allowed_diagnoses():
+    decoder = OutlinesDecoder(backend="hf", runtime_available=True)
+
+    with pytest.raises(ValueError, match="requires non-empty allowed_diagnoses"):
+        decoder.validate_ready()
+
+
+def test_outlines_decoder_not_implemented_for_non_hf_backend():
+    decoder = OutlinesDecoder(
+        backend="vllm",
+        allowed_diagnoses={"Adenocarcinoma"},
+        runtime_available=True,
+    )
+
+    with pytest.raises(NotImplementedError, match="backend='vllm'"):
+        decoder.validate_ready()
+
+
+def test_outlines_decoder_schema_constrains_diagnoses():
+    decoder = OutlinesDecoder(
+        backend="hf",
+        allowed_diagnoses={"Adenocarcinoma", "DLBCL"},
+        runtime_available=True,
+    )
+
+    schema = decoder._build_schema()
+
+    primary_any_of = schema["properties"]["diagnosis_primary"]["anyOf"]
+    primary_enum = next(item["enum"] for item in primary_any_of if "enum" in item)
+    secondary_enum = schema["properties"]["diagnosis_secondary"]["items"]["enum"]
+    assert primary_enum == ["Adenocarcinoma", "DLBCL"]
+    assert secondary_enum == ["Adenocarcinoma", "DLBCL"]

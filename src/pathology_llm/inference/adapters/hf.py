@@ -18,7 +18,7 @@ class HFAdapter(BaseModelAdapter):
     """HuggingFace Transformers backend adapter."""
 
     backend_name = "hf"
-    supported_decoders = {"none", "guidance"}
+    supported_decoders = {"none", "guidance", "outlines"}
 
     def __init__(
         self,
