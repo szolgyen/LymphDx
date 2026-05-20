@@ -1,0 +1,3 @@
+# SGLang backend dependencies for ReportLLM
+-r ../base.txt
+# Add SGLang-specific packages here.

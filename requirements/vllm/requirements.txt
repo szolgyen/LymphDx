@@ -1,0 +1,3 @@
+# vLLM backend dependencies for ReportLLM
+-r ../base.txt
+# Add vLLM-specific packages here.

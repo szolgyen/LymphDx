@@ -15,6 +15,18 @@ Main arguments:
 - `--output-dir`: JSON output directory
 - `--log-level`: `DEBUG | INFO | WARNING | ERROR | CRITICAL`
 
+Run the pipeline with the backend-specific interpreter path under `.venvs/`.
+
+The recommended setup is to bootstrap backend-specific environments using `make bootstrap`.
+
+See [installation.md](installation.md) for first-time setup.
+
+Example:
+
+```sh
+.venvs/report-llm-vllm/bin/python scripts/run_pipeline.py --backend vllm --model ... --input-file ...
+```
+
 ## Runtime Sequence
 
 1. Configure logging and output log file.

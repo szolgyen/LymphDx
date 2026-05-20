@@ -1,4 +1,5 @@
--r base.txt
+# HF backend dependencies for ReportLLM
+-r ../base.txt
 accelerate>=1.13
 gpustat>=1.1.1
 guidance>=0.3

@@ -29,3 +29,19 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.report-llm.backends]
+# Backend-specific dependency entrypoints.
+hf = "requirements/hf/requirements.txt"
+vllm = "requirements/vllm/requirements.txt"
+sglang = "requirements/sglang/requirements.txt"
+ollama = "requirements/ollama/requirements.txt"
+
+[tool.report-llm.locks]
+# uv.lock is the project lock for pyproject dependencies.
+project = "uv.lock"
+# Backend lock files are generated from the backend requirements files.
+hf = "requirements/hf/lock.txt"
+vllm = "requirements/vllm/lock.txt"
+sglang = "requirements/sglang/lock.txt"
+ollama = "requirements/ollama/lock.txt"

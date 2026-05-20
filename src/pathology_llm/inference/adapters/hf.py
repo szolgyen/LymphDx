@@ -62,7 +62,7 @@ class HFAdapter(BaseModelAdapter):
         except ImportError as exc:
             raise RuntimeError(
                 "HF backend requires transformers/torch. "
-                "Install optional deps, e.g. pip install -r requirements/hf.txt"
+                "Install optional deps, e.g. pip install -r requirements/hf/requirements.txt"
             ) from exc
 
         torch_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32

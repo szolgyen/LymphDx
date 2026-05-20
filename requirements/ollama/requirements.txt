@@ -1,0 +1,3 @@
+# Ollama backend dependencies for ReportLLM
+-r ../base.txt
+# Add Ollama-specific packages here.
