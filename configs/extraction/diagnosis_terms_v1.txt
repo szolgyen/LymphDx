@@ -1,0 +1,11 @@
+# Constrained diagnosis vocabulary v1 (one term per line)
+Adenocarcinoma
+Diffuse large B-cell lymphoma
+Follicular lymphoma
+Chronic lymphocytic leukemia
+Acute myeloid leukemia
+Plasma cell myeloma
+Reactive lymphoid hyperplasia
+No evidence of malignancy
+Low-grade B-cell lymphoma
+Marginal zone lymphoma
