@@ -1,4 +1,3 @@
 # vLLM backend dependencies for ReportLLM
 -r ../base.txt
-outlines>=1.3
-vllm==0.21.0
+# Add vLLM-specific packages here.
