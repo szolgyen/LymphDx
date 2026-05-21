@@ -45,7 +45,7 @@ Expected environments:
 ## 3) Run a quick HF pipeline smoke test
 
 ```bash
-.venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
   --backend hf \
   --model google/medgemma-4b-it \
   --decoder guidance \

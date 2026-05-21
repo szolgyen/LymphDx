@@ -30,7 +30,7 @@ uv run python scripts/run_pipeline.py \
 HF + Guidance:
 
 ```bash
-uv run python scripts/run_pipeline.py \
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
   --backend hf \
   --model google/medgemma-4b-it \
   --decoder guidance \
@@ -38,6 +38,34 @@ uv run python scripts/run_pipeline.py \
   --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
   --log-level INFO
 ```
+
+HF + Outlines (single GPU):
+
+```bash
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
+  --backend hf \
+  --model google/medgemma-4b-it \
+  --decoder outlines \
+  --input-file configs/extraction/sample_reports.txt \
+  --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
+  --log-level INFO
+```
+
+## Observed HF Model/Decoder Matrix
+
+Observed from local runs in this repository (May 2026):
+
+| Model | `guidance` | `outlines` | Notes |
+|---|---|---|---|
+| `google/medgemma-4b-it` | Works | Works | Successful end-to-end extraction run observed. |
+| `google/medgemma-1.5-4b-it` | Works | Works | `decoder=none` failed (non-JSON outputs), constrained decoders worked. |
+| `aaditya/Llama3-OpenBioLLM-8B` | Works | Works | Successful constrained extraction observed for both decoders. |
+
+Notes:
+
+- This is an observed compatibility snapshot, not a strict support matrix.
+- Results can vary by GPU topology, CUDA driver, and dependency versions.
+- For HF backend runs, pinning to a single GPU (`CUDA_VISIBLE_DEVICES=0`) is the default documented path.
 
 ## Logging
 

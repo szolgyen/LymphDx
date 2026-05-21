@@ -20,7 +20,7 @@ This folder contains structured documentation for the current framework.
 Run the current HF guidance path:
 
 ```bash
-uv run python scripts/run_pipeline.py \
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
   --backend hf \
   --model google/medgemma-4b-it \
   --decoder guidance \
