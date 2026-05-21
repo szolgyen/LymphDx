@@ -72,6 +72,7 @@ class StrictJsonDecoder(BaseDecoder):
                 },
                 "diagnosis_secondary": {
                     "type": "array",
+                    "maxItems": 10,
                     "items": {"type": "string", "enum": allowed},
                 },
                 "description": {

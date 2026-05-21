@@ -95,7 +95,6 @@ class OutlinesDecoder(StrictJsonDecoder):
         payload = self._generator(
             prompt_for_model,
             max_new_tokens=max_new_tokens,
-            temperature=0.0,
         )
 
         if self._logger is not None:
