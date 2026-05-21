@@ -27,10 +27,10 @@ Implemented:
 
 - `none.py`: best-effort generation path using prompt formatting only.
 - `hf_guidance.py`: strict Guidance-backed JSON-schema constrained generation.
+- `outlines.py`: strict schema-constrained decoding with HF and vLLM integration paths.
 
 Placeholders:
 
-- `outlines.py`
 - `sglang.py`
 - shared placeholder behavior in `placeholder.py`
 

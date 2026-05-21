@@ -24,8 +24,12 @@ See [installation.md](installation.md) for first-time setup.
 Example:
 
 ```sh
-.venvs/report-llm-vllm/bin/python scripts/run_pipeline.py --backend vllm --model ... --input-file ...
+.venvs/report-llm-hf/bin/python scripts/run_pipeline.py --backend hf --model ... --input-file ...
 ```
+
+Note:
+
+- In the current codebase, non-HF adapters (`vllm`, `sglang`, `ollama`) are placeholders and not production runtime paths yet.
 
 ## Runtime Sequence
 

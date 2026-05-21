@@ -15,7 +15,7 @@ The framework is organized by processing responsibilities:
 - `src/pathology_llm/inference/adapters/`
   - Backend runtime integration (HF, dummy, placeholders).
 - `src/pathology_llm/inference/decoders/`
-  - Decoding strategies (`none`, `guidance`, placeholders).
+  - Decoding strategies (`none`, `guidance`, `outlines`, placeholders).
 - `src/pathology_llm/prompting/`
   - Prompt template construction and diagnosis constraints injection.
 - `src/pathology_llm/schemas/`
@@ -28,7 +28,7 @@ The framework is organized by processing responsibilities:
 - Strict schema-first extraction.
 - Diagnosis constraints are enforced, not mapped post hoc.
 - Adapter runtime concerns are separated from decoder strategy concerns.
-- Placeholder scaffolding is explicit for unimplemented backends/decoders.
+- Placeholder scaffolding is explicit for unimplemented backends/decoders (currently `vllm`, `sglang`, `ollama` adapters and `sglang` decoder).
 
 ## Parallel Inference Structure
 

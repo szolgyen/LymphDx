@@ -12,7 +12,7 @@ Current coverage includes:
 
 - Schema validation behavior.
 - HF adapter parsing and decoder behavior.
-- Decoder factory placeholder routing.
+- Decoder factory routing across implemented and placeholder decoders.
 
 ## Common Runtime Commands
 
@@ -66,6 +66,33 @@ Notes:
 - This is an observed compatibility snapshot, not a strict support matrix.
 - Results can vary by GPU topology, CUDA driver, and dependency versions.
 - For HF backend runs, pinning to a single GPU (`CUDA_VISIBLE_DEVICES=0`) is the default documented path.
+
+## Observed Backend Compatibility Issues (May 2026)
+
+These failures were reproduced during local integration attempts on the current host stack
+(NVIDIA L40S, driver 550.54.15, CUDA 12.4).
+
+Context:
+
+- These are historical external backend integration attempts.
+- In the current repository state, non-HF adapters (`vllm`, `sglang`, `ollama`) are placeholders.
+
+| Backend / Runtime | Model | Status | Observed Failure |
+|---|---|---|---|
+| SGLang (`sglang==0.5.9`) | `google/medgemma-4b-it` | Not working | Runtime segfaults during Triton/FlashInfer execution path (scheduler/worker crash, process exits). |
+| vLLM (`vllm==0.21.0`) | `google/medgemma-4b-it` | Not working | CUDA driver/runtime mismatch on this host (`driver too old` for selected wheel stack). |
+| vLLM (`vllm==0.6.6.post1` + cu124 pinned torch) | `google/medgemma-4b-it` | Not working | Model architecture not supported by this vLLM build (`Gemma3ForConditionalGeneration`). |
+| vLLM (`vllm==0.6.6.post1` + cu124 pinned torch) | `google/gemma-2-2b-it` | Not working (in current custom image) | CUDA custom op mismatch (`_C::rotary_embedding`/operator backend errors), server exits before health ready. |
+| vLLM (`vllm==0.6.6.post1` + cu124 pinned torch) | `aaditya/Llama3-OpenBioLLM-8B` | Not working (in current custom image) | Multiprocessing/runtime instability (`ZMQError`, then CUDA op errors such as `_C::rms_norm`) in this tested stack. |
+
+Working baseline from these experiments:
+
+- HF backend remains the stable path for MedGemma and OpenBioLLM on this host.
+
+Operational recommendation:
+
+- Treat backend/model support as an explicit compatibility matrix.
+- Keep non-HF backend integrations as opt-in experimental until a tested matrix row is marked working on this host.
 
 ## Logging
 

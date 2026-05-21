@@ -11,7 +11,8 @@ Implemented and working:
 - HF adapter with:
   - `decoder=none`
   - `decoder=guidance` (strict constrained JSON generation path)
-- Decoder placeholders for `outlines` and `sglang`.
+- Outlines decoder implementation is available.
+- SGLang decoder remains a placeholder.
 - Backend placeholders for `vllm`, `sglang`, and `ollama` adapters.
 - Test suite passing.
 
@@ -22,6 +23,12 @@ Implemented and working:
 - Per-report pipeline error handling and non-zero failure when all reports fail.
 - Reproducible environment lock and dependency tracking.
 
+Current practical constraint from recent backend trials:
+
+- Cross-backend portability is bounded by a compatibility matrix (model architecture support, CUDA/driver stack, engine-specific kernels), not just adapter wiring.
+- As of current host tests, HF remains the reliable production path for MedGemma/OpenBioLLM.
+- In the current repository state, non-HF backends are represented by placeholder adapters and remain implementation targets.
+
 ## What Is Ahead
 
 ### Priority 1: Performance and Throughput
@@ -31,7 +38,6 @@ Implemented and working:
 
 ### Priority 2: Additional Decoder Implementations
 
-- Implement real `OutlinesDecoder`.
 - Implement real `SGLangDecoder`.
 - Expand decoder compatibility matrix by backend.
 
@@ -48,4 +54,4 @@ Implemented and working:
 
 ## Suggested Next Milestone
 
-Implement real `OutlinesDecoder` for a second constrained decoding path and connect it to the first non-HF production backend (likely vLLM). This validates cross-backend decoder abstraction early.
+Implement the first non-HF production backend adapter (likely `vllm`), then pair it with the existing `outlines` decoder path and validate against a constrained compatibility matrix.

@@ -40,4 +40,9 @@ Core outputs:
 - HF backend is implemented and supports:
   - `decoder=none` (best-effort JSON prompting)
   - `decoder=guidance` (strict schema-guided generation path)
-- Decoder placeholders exist for `outlines` and `sglang`.
+  - `decoder=outlines` (strict constrained decoding path)
+- Decoder status:
+  - `outlines` is implemented.
+  - `sglang` remains a placeholder.
+- Backend status:
+  - `vllm`, `sglang`, and `ollama` adapters are placeholders in the current codebase.
