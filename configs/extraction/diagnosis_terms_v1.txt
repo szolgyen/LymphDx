@@ -1,11 +1,311 @@
 # Constrained diagnosis vocabulary v1 (one term per line)
-Adenocarcinoma
-Diffuse large B-cell lymphoma
-Follicular lymphoma
+Adult T-cell leukemia/lymphoma
+Adult T-cell lymphoma
+ATLL
+Primary cutaneous ALCL
+Primary cutaneous anaplastic large cell lymphoma
+Primary cutaneous anaplastic large cell lymphoma
+Angioimmunoblastic lymphoma
+Angioimmunoblastic T-cell lymphoma
+Nodal T follicular helper cell lymphoma NOS
+Nodal T follicular helper cell lymphoma, angioimmunoblastic type
+Nodal T follicular helper cell lymphoma, angioimmunoblastic-type
+Nodal T follicular helper cell lymphoma, follicular type
+Nodal TFH cell lymphoma, angioimmunoblastic-type
+Nodal TFH cell lymphoma, angioimmunoblastic-type
+TFH cell lymphoma, angioimmunoblastic type
+B cell unclassifiable with features indeterminate between diffuse large B-cell lymphoma and Burkitt lymphoma
+B-cell lymphoma, unclassifiable, with features intermediate between diffuse large B-cell lymphoma and classic Hodgkin lymphoma
+Mediastinal grey zone lymphoma
+Burkitt lymphoma
+Burkitt-type lymphoma
 Chronic lymphocytic leukemia
-Acute myeloid leukemia
-Plasma cell myeloma
-Reactive lymphoid hyperplasia
-No evidence of malignancy
-Low-grade B-cell lymphoma
+Chronic lymphocytic leukemia/small lymphocytic lymphoma
+CLL/SLL
+SLL
+Small lymphocytic lymphoma
+Enteropathy-associated T-cell lymphoma
+Extranodal marginal zone (MALT)
+Extranodal marginal zone lymphoma of mucosa-associated lymphoid tissue
+MALT lymphoma
 Marginal zone lymphoma
+MZL
+Extranodal NK/T-cell lymphoma
+Extranodal NK/T-cell lymphoma, nasal type
+Hepatosplenic T-cell lymphoma
+Immunodeficiency-associated lymphoproliferative disorders
+T-cell large granular lymphocytic leukemia
+T-large granular lymphocytic leukaemia
+Low-grade B-cell NOS
+Lymphoplasmacytic lymphoma
+Mantle cell lymphoma
+MCL
+Primary mediastinal (thymic) large B-cell lymphoma
+Primary mediastinal large B-cell lymphoma
+Mycosis fungoides
+NMZL
+Nodal marginal zone B-cell lymphoma
+Nodal marginal zone lymphoma
+NLPHL
+Nodular lymphocyte predominant B cell lymphoma
+Nodular lymphocyte predominant Hodgkin lymphoma
+Other B-lineage neoplasm
+Other Hodgkin lymphoma
+Other lymphoid neoplasm
+Other T/NK-cell neoplasm
+Peripheral T-cell lymphoma NOS
+Peripheral T-cell lymphoma, not otherwise specified
+PTCL NOS
+Primary diffuse large B cell lymphoma of CNS
+Primary effusion lymphoma
+Post-transplant lymphoproliferative disorder (PTLD)
+Sezary syndrome
+SMZL
+Splenic marginal zone lymphoma
+Subcutaneous panniculitis-like T-cell lymphoma
+B-cell prolymphocytic leukemia
+Hairy cell leukemia
+Splenic B-cell lymphoma/leukemia, unclassifiable
+Splenic diffuse red pulp small B-cell lymphoma
+Hairy cell leukemia - variant
+Splenic B-cell lymphoma/leukaemia with prominent nucleoli (SBLPN)
+Follicular lymphoma
+Follicular center cell lymphoma
+Primary cutaneous follicle center lymphoma
+Diffuse large B-cell lymphoma
+Diffuse large B-cell lymphoma, NOS
+Diffuse large B-cell lymphoma, NOS (DLBCL)
+DLBCL
+DLBCL, NOS
+T-cell/histiocyte rich large B-cell lymphoma
+Primary cutaneous diffuse large B cell lymphoma, leg type
+EBV positive diffuse large B cell lymphoma of the elderly
+Diffuse large B cell lymphoma associated with chronic inflammation
+Fibrin-associated large B-cell lymphoma
+Lymphomatoid granulomatosis
+Intravascular large B-cell lymphoma
+ALK positive large B-cell lymphoma
+Plasmablastic lymphoma
+Large B-cell lymphoma arising in HHV8-associated Castleman disease
+T-cell prolymphocytic leukemia
+T-prolymphocytic leukemia
+Chronic lymphoproliferative disorder of NK cells
+NK-large granular lymphocytic leukaemia
+Aggressive NK cell leukemia
+EBV-positive T- and NK-cell lymphoid proliferations and lymphomas of childhood
+Systemic EBV positive TCL of childhood
+Systemic EBV-positive T-cell lymphoma of childhood
+Hydroa vacciniforme lymphoproliferative disorder
+Hydroa vacciniforme-like lymphoproliferative disorder
+Lymphomatoid papulosis
+Primary cutaneous gamma-delta T-cell lymphoma
+Primary cutaneous CD4+ small/medium T-cell lymphoproliferative disorder
+Primary cutaneous CD4-positive small or medium T-cell lymphoproliferative disorder
+ALK-positive ALCL
+Anaplastic large cell lymphoma, ALK positive
+ALK-negative ALCL
+Anaplastic large cell lymphoma, ALK negative
+Classic Hodgkin lymphoma
+Classical Hodgkin lymphoma
+Lymphocyte-depleted classic Hodgkin lymphoma
+Lymphocyte-depleted Hodgkin lymphoma
+Lymphocyte-rich classic Hodgkin lymphoma
+Lymphocyte-rich Hodgkin lymphoma
+Mixed cellularity classic Hodgkin lymphoma
+Mixed cellularity Hodgkin lymphoma
+Nodular sclerosis classic Hodgkin lymphoma
+Nodular sclerosis Hodgkin lymphoma
+Pediatric nodal marginal zone lymphoma
+In situ follicular B-cell neoplasm
+In situ follicular neoplasia
+Duodenal-type follicular lymphoma
+Pediatric-type follicular lymphoma
+In situ mantle cell neoplasia
+In situ mantle cell neoplasm
+EBV positive diffuse large B cell lymphoma
+EBV-positive diffuse large B cell lymphoma
+EBV+ mucocutaneous ulcer
+Large B-cell lymphoma with IRF4 rearrangement
+Burkitt-like lymphoma with 11q aberration
+High-grade B-cell lymphoma with 11q aberrations
+Large B-cell lymphoma with 11q aberration
+Double-hit lymphoma
+High-grade B-cell lymphoma with MYC and BCL2 and/or BCL6 rearrangements
+Triple-hit lymphoma
+High grade B-cell lymphoma, NOS
+High-grade B-cell lymphoma
+Large B-cell lymphoma, unable to distinguish between diffuse large B cell lymphoma and follicular lymphoma 
+Monomorphic epitheliotropic intestinal T-cell lymphoma
+Indolent clonal T-cell lymphoproliferative disorder of the GI tract
+Indolent T-cell lymphoma of the gastrointestinal tract
+Indolent T-cell lymphoproliferative disorder of the GI tract
+Intestinal T-cell lymphoma NOS
+Primary cutaneous acral CD8+ T-cell lymphoma
+Primary cutaneous acral CD8-positive lymphoproliferative disorder
+Follicular T-cell lymphoma
+Nodal TFH cell lymphoma, follicular-type
+TFH cell lymphoma, follicular-type
+Nodal peripheral T-cell lymphoma with TFH phenotype
+Nodal TFH cell lymphoma, NOS
+TFH cell lymphoma, NOS
+Breast implant-associated anaplastic large cell lymphoma
+Florid follicular hyperplasia PTLD
+Hyperplasias arising in immune deficiency/dysregulation
+ALK-positive histiocytosis
+Classic Follicular lymphoma 
+Follicular lymphoma grades 1, 2 and 3A
+Follicular lymphoma, grade 1
+Follicular lymphoma, grade 2
+Follicular lymphoma, grade 3
+Follicular lymphoma, grade 3A
+Follicular lymphoma, grade 3B
+Follicular lymphoma, low grade
+Diffuse large B cell lymphoma/high-grade B-cell lymphoma with MYC and BCL2 rearrangements
+High-grade B-cell lymphoma with MYC and BCL2 rearrangements
+EBV+ nodal T- and NK-cell lymphoma
+Primary nodal EBV-positive T-cell/NK-cell lymphoma
+Follicular lymphoma with uncommon features (uFL)
+Fluid overload associated large B cell lymphoma
+HHV-8 and Epstein-Barr virus negative primary effusion-based lymphoma
+Follicular large B cell lymphoma
+Follicular lymphoma grade 3B
+Indolent NK-cell lymphoproliferative diorder of the gastrointestinal tract
+HHV8-positive diffuse large B cell lymphoma, NOS
+KSHV/HHV8-positive diffuse large B cell lymphoma
+HHV8-positive germinotropic lymphoproliferative disorder
+KSHV/HHV8-positive germinotropic lymphoproliferative disorder
+High-grade B-cell lymphoma with MYC and BCL6 rearrangements
+Type 2 refractory celiac disease
+Other immunodeficiency-related lymphoproliferative disorder
+Primary cutaneous marginal zone lymphoma
+Primary cutaneous marginal zone lymphoproliferative disorder
+Primary cutaneous peripheral T-cell lymphoma, NOS
+Primary large B cell lymphoma of the testis
+Primary large B cell lymphoma of the vitreoretina
+Aggressive B cell lymphoma, NOS
+Primary cutaneous CD8-positive aggressive epidermotropic cytotoxic T-cell lymphoma
+B cell acute lymphoblastic leukemia
+B lymphoblastic leukemia/lymphoma
+B-ALL/LBL
+T-ALL/LBL
+T cell acute lymphoblastic leukemia
+T lymphoblastic leukemia/lymphoma
+Acute myeloid leukemia
+Myeloid sarcoma
+Mast cell disease
+Mastocytosis
+Myeloproliferative neoplasm
+Blastic plasmacytoid dendritic cell neoplasm
+CD4+/CD56+ hematodermic neoplasm
+Multiple myeloma
+Plasma cell neoplasm
+Plasmacytoma
+Amyloid
+Amyloid deposits
+Amyloidosis
+EBV-positive inflammatory follicular dendritic cell sarcoma
+Fibroblastic reticular cell tumour
+Follicular dendritic cell sarcoma
+Indeterminate dendritic cell tumor
+Interdigitating dendritic cell sarcoma
+Intranodal palisaded myofibroblastoma
+Histiocytic sarcoma
+Langerhans cell histiocytosis
+LCH
+Langerhans cell sarcoma
+Erdheim-Chester disease
+Juvenile xanthogranuloma
+Carcinoma
+Metastatic carcinoma
+Metastatic carcinoma in lymph node
+Melanoma
+Melanoma metastasis
+Metastatic melanoma
+Metastatic melanoma in lymph node
+Metastatic sarcoma
+Kaposi sarcoma
+Angiolipomatous hamartoma
+Angiomyolipoma
+Hemangioma
+Lymphangioma
+Lymphangiomyomatosis
+Vascular transformation of sinuses
+Autoimmune lymphoproliferative syndrome (ALPS)
+Benign lymph node
+Benign reactive lymphoid hyperplasia
+Florid follicular hyerplasia
+Follicular and interfollicular hyperplasia
+Follicular hyperplasia
+Indolent T-lymphoblastic proliferation
+Interfollicular hyperplasia
+Monoclonal B-cell lymphocytosis
+Paracortical expansion
+Paracortical hyperplasia
+Reactive follicular hyperplasia
+Reactive germinal center hyperplasia
+Reactive hyperplasia
+Reactive lymphadenitis
+Reactive lymphoid hyperplasia
+Reactive T-zone hyperplasia
+Sinus histiocytosis
+Sinus hyperplasia
+Sinusoidal histiocytosis
+Negative for carcinoma
+No metastatic tumor
+Progressive germinal center transformation
+Progressive transformation of germinal centers
+Dermatopathic changes
+Dermatopathic lymphadenitis
+Dermatopathic lymphadenopathy
+Paracortical hyperplasia with melanin-laden macrophages
+Angiolymphoid hyperplasia with eosinophilia
+Eosinophilic granuloma of soft tissue
+Eosinophilic lymphofollicular granuloma
+Eosinophilic lymphogranuloma
+Kimura disease
+Histiocytic necrotizing lymphadenitis
+Kikuchi lymphadenitis
+Kikuchi-Fujimoto disease
+Necrotizing lymphadenitis
+Lupus lymphadenitis
+Lupus lymphadenopathy
+Systemic lupus erythematosus lymphadenopathy
+Rosai-Dorfman disease
+Sinus histiocytosis with massive lymphadenopathy
+Hemophagocytic lymphohistiocytosis
+IgG4 disease
+IgG4-related lymphadenopathy
+Rheumatoid lymphadenitis
+Drug-induced lymphadenopathy
+Cat-scratch disease
+Toxoplasma lymphadenitis
+Epstein Barr virus (EBV) infection
+Infectious mononucleosis
+HIV-associated lymphadenopathy
+Luetic lymphadenitis
+Syphilitic lymphadenitis
+Fungal lymphadenitis
+Granuloma
+Granulomata
+Granulomatous inflammation of lymph node
+Granulomatous lymphadenitis
+Granulomatous reaction
+Sarcoid-like granulomatous lymphadenitis
+Sarcoidosis involving lymph node
+Acid fast organisms
+Mycobacterial lymphadenitis
+Parasitic infections
+Systemic chronic active EBV disease
+Angiofollicular lymph node hyperplasia
+Castleman disease
+Giant lymph node hyperplasia
+Localized Castleman disease
+Multicentric Castleman disease
+Systemic Castleman disease
+Unicentric Castleman disease
+Hyalinization
+Anthracosis
+Lipofuscin deposition
+Silicone lymphadenopathy
+Epithelial/mesothelial inclusions
+Necrosis
