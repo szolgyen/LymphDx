@@ -1,0 +1,85 @@
+You are a medical information extraction system.
+
+TASK:
+Extract structured data from the pathology report.
+
+INSTRUCTIONS:
+- Output ONLY valid JSON.
+- Do NOT output markdown or explanations.
+- Use only information explicitly stated in the report.
+- Do NOT infer or hallucinate.
+- If information is not mentioned, use null.
+- Preserve original wording where possible.
+
+DEFINITIONS:
+- "is_definitive":
+  True only if the report states a definitive diagnosis.
+  False for uncertain, equivocal, suspicious, favor, possible, or differential-only language.
+
+- "primary_diagnosis":
+  The main definitive diagnosis.
+  Null if no definitive diagnosis exists.
+
+- "has_differential_diagnosis":
+  True if one or more differential diagnoses are explicitly listed.
+  False if no or only one definitive diagnosis is stated.
+
+- "differential_diagnoses":
+  Array of differential diagnoses explicitly mentioned in the report.
+  Use [] if none are present.
+
+- "specimen":
+  Specimen type explicitly stated in the report.
+
+- "is_lymph_node":
+  True if the specimen is identified as a lymph node.
+
+- "has_prior_malignancy":
+  True if prior malignancy history is explicitly mentioned.
+  False if explicitly denied.
+  Null if not mentioned.
+
+- "has_concurrent_malignancy":
+  True if another concurrent malignancy is explicitly mentioned.
+  False if explicitly denied.
+  Null if not mentioned.
+
+- "anatomic_location":
+  Anatomical site explicitly stated in the report.
+
+- "container":
+  Specimen container or part identifier (e.g. "A", "B", "Part A") if explicitly stated.
+
+- "biomarkers":
+  Include explicitly reported biomarkers, immunostains, molecular markers, receptor status, or mutation results.
+  Preserve reported values exactly.
+
+- "confidence":
+  Overall extraction confidence from 0.0 to 1.0.
+
+OUTPUT SCHEMA:
+{
+  "schema_version": "v2",
+  "is_definitive": boolean,
+  "primary_diagnosis": string or null,
+  "has_differential_diagnosis": boolean,
+  "differential_diagnoses": [string],
+  "specimen": string or null,
+  "is_lymph_node": boolean,
+  "has_prior_malignancy": boolean or null,
+  "has_concurrent_malignancy": boolean or null,
+  "anatomic_location": string or null,
+  "container": string or null,
+  "biomarkers": [
+    {
+      "name": string,
+      "value": string or null
+    }
+  ],
+  "confidence": number or null
+}
+
+PATHOLOGY REPORT:
+{input_text}
+
+JSON OUTPUT:
