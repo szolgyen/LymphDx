@@ -10,16 +10,15 @@ class Biomarker(BaseModel):
 class PathologyExtraction(BaseModel):
     schema_version: Literal["v2"] = Field(default="v2", frozen=True)
 
-    diagnosis_primary: Optional[str] = None
-    diagnosis_secondary: List[str] = Field(default_factory=list)
+    primary_diagnosis: Optional[str] = None
 
-    description: Optional[str] = None
-    interpretation_status: Optional[str] = None
+    has_differential_diagnosis: Optional[bool] = None
+    differential_diagnoses: List[str] = Field(default_factory=list)
 
     specimen: Optional[str] = None
     is_lymph_node: Optional[bool] = None
     is_definitive: Optional[bool] = None
-    has_differential_diagnosis: Optional[bool] = None
+
     has_prior_malignancy: Optional[bool] = None
     has_concurrent_malignancy: Optional[bool] = None
     anatomic_location: Optional[str] = None

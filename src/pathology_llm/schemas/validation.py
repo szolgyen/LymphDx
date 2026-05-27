@@ -17,22 +17,44 @@ def _enforce_diagnosis_constraints(
     allowed_diagnoses: set[str],
 ) -> None:
     if (
-        extraction.diagnosis_primary
-        and extraction.diagnosis_primary not in allowed_diagnoses
+        extraction.primary_diagnosis
+        and extraction.primary_diagnosis not in allowed_diagnoses
     ):
         raise DiagnosisConstraintError(
-            "diagnosis_primary is outside constrained diagnosis set: "
-            f"{extraction.diagnosis_primary!r}"
+            "primary_diagnosis is outside constrained diagnosis set: "
+            f"{extraction.primary_diagnosis!r}"
         )
 
     invalid_secondary = [
-        term for term in extraction.diagnosis_secondary if term not in allowed_diagnoses
+        term
+        for term in extraction.differential_diagnoses
+        if term not in allowed_diagnoses
     ]
     if invalid_secondary:
         raise DiagnosisConstraintError(
-            "diagnosis_secondary contains values outside constrained diagnosis set: "
+            "differential_diagnoses contains values outside constrained diagnosis set: "
             f"{invalid_secondary!r}"
         )
+
+
+def _normalize_differential_consistency(extraction: PathologyExtraction) -> None:
+    # Keep only non-empty differential entries and remove any duplicate of primary diagnosis.
+    primary = extraction.primary_diagnosis
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for term in extraction.differential_diagnoses:
+        term_clean = term.strip()
+        if not term_clean:
+            continue
+        if primary and term_clean == primary:
+            continue
+        if term_clean in seen:
+            continue
+        seen.add(term_clean)
+        deduped.append(term_clean)
+
+    extraction.differential_diagnoses = deduped
+    extraction.has_differential_diagnosis = bool(deduped)
 
 
 def validate_pathology_output(
@@ -62,6 +84,8 @@ def validate_pathology_output(
 
         # validate via Pydantic
         extraction = PathologyExtraction.model_validate(data)
+
+        _normalize_differential_consistency(extraction)
 
         # strict constrained decoding contract: no ontology mapping fallback
         if allowed_diagnoses is not None:

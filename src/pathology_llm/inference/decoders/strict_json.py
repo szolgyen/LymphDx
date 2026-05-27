@@ -33,8 +33,8 @@ class StrictJsonDecoder(BaseDecoder):
         strict_suffix = (
             f"\n\nSTRICT DECODER MODE ({self.name}):\n"
             "- You MUST output exactly one valid JSON object matching the requested schema.\n"
-            "- diagnosis_primary must be selected from the allowed list below.\n"
-            "- diagnosis_secondary terms must all be selected from the allowed list below.\n"
+            "- primary_diagnosis must be selected from the allowed list below.\n"
+            "- differential_diagnoses terms must all be selected from the allowed list below.\n"
             "- Do not output any explanation or markdown.\n"
             "ALLOWED DIAGNOSES:\n"
             f"{diagnosis_terms}\n"
@@ -64,28 +64,16 @@ class StrictJsonDecoder(BaseDecoder):
             "additionalProperties": False,
             "properties": {
                 "schema_version": {"type": "string", "enum": ["v2"]},
-                "diagnosis_primary": {
+                "primary_diagnosis": {
                     "anyOf": [
                         {"type": "string", "enum": allowed},
                         {"type": "null"},
                     ]
                 },
-                "diagnosis_secondary": {
+                "differential_diagnoses": {
                     "type": "array",
                     "maxItems": 10,
                     "items": {"type": "string", "enum": allowed},
-                },
-                "description": {
-                    "anyOf": [
-                        {"type": "string"},
-                        {"type": "null"},
-                    ]
-                },
-                "interpretation_status": {
-                    "anyOf": [
-                        {"type": "string"},
-                        {"type": "null"},
-                    ]
                 },
                 "specimen": {
                     "anyOf": [
@@ -161,14 +149,12 @@ class StrictJsonDecoder(BaseDecoder):
             },
             "required": [
                 "schema_version",
-                "diagnosis_primary",
-                "diagnosis_secondary",
-                "description",
-                "interpretation_status",
+                "primary_diagnosis",
+                "has_differential_diagnosis",
+                "differential_diagnoses",
                 "specimen",
                 "is_lymph_node",
                 "is_definitive",
-                "has_differential_diagnosis",
                 "has_prior_malignancy",
                 "has_concurrent_malignancy",
                 "anatomic_location",
