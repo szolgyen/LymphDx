@@ -33,6 +33,8 @@ decorator==5.3.1
     # via ipython
 diskcache==5.6.3
     # via outlines
+et-xmlfile==2.0.0
+    # via openpyxl
 executing==2.2.1
     # via stack-data
 filelock==3.29.0
@@ -147,6 +149,8 @@ nvidia-nvjitlink-cu12==12.4.127
     #   torch
 nvidia-nvtx-cu12==12.4.127
     # via torch
+openpyxl==3.1.5
+    # via -r requirements/hf/requirements.txt
 outlines==1.3.0
     # via -r requirements/hf/requirements.txt
 outlines-core==0.2.14
