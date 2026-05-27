@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--prompt-template",
-        default="configs/prompts/extraction_v1.txt",
+        default="configs/prompts/extraction_v2.txt",
         help="Prompt template path",
     )
     parser.add_argument(

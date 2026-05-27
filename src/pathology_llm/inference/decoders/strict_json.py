@@ -63,7 +63,7 @@ class StrictJsonDecoder(BaseDecoder):
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "schema_version": {"type": "string", "enum": ["v1"]},
+                "schema_version": {"type": "string", "enum": ["v2"]},
                 "diagnosis_primary": {
                     "anyOf": [
                         {"type": "string", "enum": allowed},
@@ -94,6 +94,30 @@ class StrictJsonDecoder(BaseDecoder):
                     ]
                 },
                 "is_lymph_node": {
+                    "anyOf": [
+                        {"type": "boolean"},
+                        {"type": "null"},
+                    ]
+                },
+                "is_definitive": {
+                    "anyOf": [
+                        {"type": "boolean"},
+                        {"type": "null"},
+                    ]
+                },
+                "has_differential_diagnosis": {
+                    "anyOf": [
+                        {"type": "boolean"},
+                        {"type": "null"},
+                    ]
+                },
+                "has_prior_malignancy": {
+                    "anyOf": [
+                        {"type": "boolean"},
+                        {"type": "null"},
+                    ]
+                },
+                "has_concurrent_malignancy": {
                     "anyOf": [
                         {"type": "boolean"},
                         {"type": "null"},
@@ -143,6 +167,10 @@ class StrictJsonDecoder(BaseDecoder):
                 "interpretation_status",
                 "specimen",
                 "is_lymph_node",
+                "is_definitive",
+                "has_differential_diagnosis",
+                "has_prior_malignancy",
+                "has_concurrent_malignancy",
                 "anatomic_location",
                 "container",
                 "biomarkers",

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, List
+from typing import Optional, List
 
 
 class Biomarker(BaseModel):
@@ -8,7 +8,7 @@ class Biomarker(BaseModel):
 
 
 class PathologyExtraction(BaseModel):
-    schema_version: Literal["v2"] = Field(default="v2", frozen=True)
+    schema_version: str = Field(default="v1", frozen=True)
 
     diagnosis_primary: Optional[str] = None
     diagnosis_secondary: List[str] = Field(default_factory=list)
@@ -18,10 +18,6 @@ class PathologyExtraction(BaseModel):
 
     specimen: Optional[str] = None
     is_lymph_node: Optional[bool] = None
-    is_definitive: Optional[bool] = None
-    has_differential_diagnosis: Optional[bool] = None
-    has_prior_malignancy: Optional[bool] = None
-    has_concurrent_malignancy: Optional[bool] = None
     anatomic_location: Optional[str] = None
 
     container: Optional[str] = None

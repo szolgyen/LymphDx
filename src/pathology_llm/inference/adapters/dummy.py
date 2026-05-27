@@ -9,13 +9,17 @@ class DummyAdapter(BaseModelAdapter):
         # Simulated LLM output (intentionally imperfect realism)
         return """
         {
-            "schema_version": "v1",
+            "schema_version": "v2",
             "diagnosis_primary": "Adenocarcinoma",
             "diagnosis_secondary": [],
             "description": "Moderately differentiated tumor",
             "interpretation_status": "present",
             "specimen": "Colon biopsy",
             "is_lymph_node": false,
+            "is_definitive": true,
+            "has_differential_diagnosis": false,
+            "has_prior_malignancy": null,
+            "has_concurrent_malignancy": null,
             "anatomic_location": "Colon",
             "container": null,
             "biomarkers": [

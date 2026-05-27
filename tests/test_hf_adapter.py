@@ -12,13 +12,17 @@ from pathology_llm.schemas.validation import (
 def _valid_payload(primary: str = "Adenocarcinoma") -> str:
     return f"""
     {{
-        "schema_version": "v1",
+        "schema_version": "v2",
         "diagnosis_primary": "{primary}",
         "diagnosis_secondary": [],
         "description": "Moderately differentiated tumor",
         "interpretation_status": "present",
         "specimen": "Colon biopsy",
         "is_lymph_node": false,
+        "is_definitive": true,
+        "has_differential_diagnosis": false,
+        "has_prior_malignancy": null,
+        "has_concurrent_malignancy": null,
         "anatomic_location": "Colon",
         "container": null,
         "biomarkers": [
@@ -118,6 +122,11 @@ def test_hf_guidance_decoder_schema_constrains_diagnoses():
     primary_any_of = schema["properties"]["diagnosis_primary"]["anyOf"]
     primary_enum = next(item["enum"] for item in primary_any_of if "enum" in item)
     secondary_enum = schema["properties"]["diagnosis_secondary"]["items"]["enum"]
+    assert schema["properties"]["schema_version"]["enum"] == ["v2"]
+    assert "is_definitive" in schema["required"]
+    assert "has_differential_diagnosis" in schema["required"]
+    assert "has_prior_malignancy" in schema["required"]
+    assert "has_concurrent_malignancy" in schema["required"]
     assert primary_enum == ["Adenocarcinoma", "DLBCL"]
     assert secondary_enum == ["Adenocarcinoma", "DLBCL"]
 
