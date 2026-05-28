@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--input-file",
         required=True,
-        help="Path to .txt file with one report per line",
+        help="Path to input reports file (.txt one-per-line or .xlsx with Number/Final Diagnosis columns)",
     )
     parser.add_argument(
         "--prompt-template",

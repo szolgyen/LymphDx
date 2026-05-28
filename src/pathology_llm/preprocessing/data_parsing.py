@@ -1,11 +1,18 @@
 from pathlib import Path
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ParsedReport:
+    case_id: int | None
+    text: str
 
 
 def load_reports_from_excel(
     path: str | Path,
     id_column: str = "Number",
     text_column: str = "Final Diagnosis",
-) -> list[str]:
+) -> list[ParsedReport]:
     """Load report texts from an Excel file.
 
     Expected columns:
@@ -37,7 +44,7 @@ def load_reports_from_excel(
     id_index = headers.index(id_column)
     text_index = headers.index(text_column)
 
-    reports: list[str] = []
+    reports: list[ParsedReport] = []
     for row in sheet.iter_rows(min_row=2, values_only=True):
         report_id = row[id_index] if id_index < len(row) else None
         report_text = row[text_index] if text_index < len(row) else None
@@ -60,7 +67,7 @@ def load_reports_from_excel(
 
         text = str(report_text).strip()
         if text:
-            reports.append(text)
+            reports.append(ParsedReport(case_id=report_id, text=text))
 
     if not reports:
         raise ValueError(f"No report texts found in column '{text_column}' from {path}")

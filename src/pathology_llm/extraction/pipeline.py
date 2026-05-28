@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from pathology_llm.inference.adapters.base import BaseModelAdapter
+from pathology_llm.preprocessing.data_parsing import ParsedReport
 from pathology_llm.prompting.prompt_builder import build_extraction_prompt_from_template
 from pathology_llm.schemas.pathology import PathologyExtraction
 
@@ -21,21 +22,23 @@ class ExtractionPipeline:
         self.allowed_diagnoses = allowed_diagnoses
         self.prompt_template = Path(prompt_template_path).read_text(encoding="utf-8")
 
-    def extract_reports(self, reports: list[str]) -> list[PathologyExtraction]:
+    def extract_reports(self, reports: list[ParsedReport]) -> list[PathologyExtraction]:
         logger.info("Extracting structured outputs for %d reports", len(reports))
         outputs: list[PathologyExtraction] = []
         errors: dict[int, str] = {}
 
-        for idx, report_text in enumerate(reports, start=1):
+        for idx, report in enumerate(reports, start=1):
             try:
                 logger.debug("Building prompt for report_index=%d", idx)
                 prompt = build_extraction_prompt_from_template(
                     template=self.prompt_template,
-                    input_text=report_text,
+                    input_text=report.text,
                     allowed_diagnoses=self.allowed_diagnoses,
                 )
                 logger.debug("Running extraction for report_index=%d", idx)
-                outputs.append(self.adapter.extract(prompt))
+                extraction = self.adapter.extract(prompt)
+                extraction.case_id = report.case_id
+                outputs.append(extraction)
             except Exception as e:
                 logger.error(
                     "Failed to extract report_index=%d: %s",

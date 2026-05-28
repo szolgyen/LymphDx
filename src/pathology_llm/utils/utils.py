@@ -2,13 +2,16 @@ import json
 import logging
 from pathlib import Path
 
-from pathology_llm.preprocessing.data_parsing import load_reports_from_excel
+from pathology_llm.preprocessing.data_parsing import (
+    ParsedReport,
+    load_reports_from_excel,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-def load_reports(path: str) -> list[str]:
+def load_reports(path: str) -> list[ParsedReport]:
     source_path = Path(path)
     if source_path.suffix.lower() == ".xlsx":
         reports = load_reports_from_excel(source_path)
@@ -16,7 +19,9 @@ def load_reports(path: str) -> list[str]:
         return reports
 
     lines = source_path.read_text(encoding="utf-8").splitlines()
-    reports = [line.strip() for line in lines if line.strip()]
+    reports = [
+        ParsedReport(case_id=None, text=line.strip()) for line in lines if line.strip()
+    ]
     if not reports:
         raise ValueError(f"No reports found in {path}")
     logger.info("Loaded %d reports from %s", len(reports), path)

@@ -10,6 +10,8 @@ class Biomarker(BaseModel):
 class PathologyExtraction(BaseModel):
     schema_version: Literal["v2"] = Field(default="v2", frozen=True)
 
+    case_id: Optional[int] = None
+
     primary_diagnosis: Optional[str] = None
 
     has_differential_diagnosis: Optional[bool] = None
