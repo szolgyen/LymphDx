@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Callable
 
 from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.preprocessing.data_parsing import ParsedReport
@@ -22,7 +23,11 @@ class ExtractionPipeline:
         self.allowed_diagnoses = allowed_diagnoses
         self.prompt_template = Path(prompt_template_path).read_text(encoding="utf-8")
 
-    def extract_reports(self, reports: list[ParsedReport]) -> list[PathologyExtraction]:
+    def extract_reports(
+        self,
+        reports: list[ParsedReport],
+        on_success: Callable[[int, PathologyExtraction], None] | None = None,
+    ) -> list[PathologyExtraction]:
         logger.info("Extracting structured outputs for %d reports", len(reports))
         outputs: list[PathologyExtraction] = []
         errors: dict[int, str] = {}
@@ -39,6 +44,8 @@ class ExtractionPipeline:
                 extraction = self.adapter.extract(prompt)
                 extraction.case_id = report.case_id
                 outputs.append(extraction)
+                if on_success is not None:
+                    on_success(idx, extraction)
             except Exception as e:
                 logger.error(
                     "Failed to extract report_index=%d: %s",

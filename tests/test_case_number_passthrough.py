@@ -4,7 +4,11 @@ from pathology_llm.extraction.pipeline import ExtractionPipeline
 from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.preprocessing.data_parsing import ParsedReport
 from pathology_llm.schemas.pathology import PathologyExtraction
-from pathology_llm.utils.utils import load_reports
+from pathology_llm.utils.utils import (
+    load_reports,
+    prepare_output_store,
+    write_output_record,
+)
 
 
 class _StubAdapter(BaseModelAdapter):
@@ -23,7 +27,7 @@ class _StubAdapter(BaseModelAdapter):
         return PathologyExtraction(primary_diagnosis="Adenocarcinoma")
 
 
-def test_pipeline_attaches_case_number_without_prompt_injection(tmp_path: Path) -> None:
+def test_pipeline_attaches_case_id_without_prompt_injection(tmp_path: Path) -> None:
     template_path = tmp_path / "prompt.txt"
     template_path.write_text("Report: {input_text}", encoding="utf-8")
 
@@ -45,7 +49,7 @@ def test_pipeline_attaches_case_number_without_prompt_injection(tmp_path: Path) 
     assert "Final diagnosis text" in adapter.last_prompt
 
 
-def test_load_reports_txt_sets_number_none(tmp_path: Path) -> None:
+def test_load_reports_txt_sets_case_id_none(tmp_path: Path) -> None:
     input_file = tmp_path / "reports.txt"
     input_file.write_text("line one\n\nline two\n", encoding="utf-8")
 
@@ -56,3 +60,27 @@ def test_load_reports_txt_sets_number_none(tmp_path: Path) -> None:
     assert reports[0].text == "line one"
     assert reports[1].case_id is None
     assert reports[1].text == "line two"
+
+
+def test_incremental_output_persistence_writes_each_record(tmp_path: Path) -> None:
+    output_dir = tmp_path / "predictions"
+    prepare_output_store(str(output_dir))
+
+    write_output_record(
+        output_dir=str(output_dir),
+        report_index=1,
+        output={"schema_version": "v2", "case_id": 10, "primary_diagnosis": "A"},
+    )
+    write_output_record(
+        output_dir=str(output_dir),
+        report_index=2,
+        output={"schema_version": "v2", "case_id": 11, "primary_diagnosis": "B"},
+    )
+
+    assert (output_dir / "case_0001.json").exists()
+    assert (output_dir / "case_0002.json").exists()
+
+    lines = (output_dir / "predictions.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 2
+    assert '"case_id": 10' in lines[0]
+    assert '"case_id": 11' in lines[1]

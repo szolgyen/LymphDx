@@ -6,7 +6,12 @@ from pathlib import Path
 from pathology_llm.extraction.pipeline import ExtractionPipeline
 from pathology_llm.inference.adapters.factory import create_adapter
 from pathology_llm.utils.logging_config import configure_logging
-from pathology_llm.utils.utils import load_reports, load_diagnosis_terms, write_outputs
+from pathology_llm.utils.utils import (
+    load_reports,
+    load_diagnosis_terms,
+    prepare_output_store,
+    write_output_record,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -87,14 +92,25 @@ def main() -> int:
             prompt_template_path=args.prompt_template,
             allowed_diagnoses=allowed_diagnoses,
         )
-        extraction_outputs = pipeline.extract_reports(reports)
+        prepare_output_store(args.output_dir)
+
+        def _persist_output(report_index: int, extraction_output) -> None:
+            write_output_record(
+                output_dir=args.output_dir,
+                report_index=report_index,
+                output=extraction_output.model_dump(),
+            )
+
+        extraction_outputs = pipeline.extract_reports(
+            reports,
+            on_success=_persist_output,
+        )
         if reports and not extraction_outputs:
             raise RuntimeError(
                 "Extraction produced zero valid outputs; see logs for per-report errors"
             )
-        write_outputs(args.output_dir, [obj.model_dump() for obj in extraction_outputs])
         logger.info(
-            "Pipeline completed successfully reports=%d output_dir=%s",
+            "Pipeline completed successfully reports=%d output_dir=%s (incremental writes enabled)",
             len(extraction_outputs),
             args.output_dir,
         )

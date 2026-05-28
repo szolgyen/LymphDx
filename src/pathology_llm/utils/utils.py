@@ -49,15 +49,30 @@ def load_diagnosis_terms(path: str | Path) -> set[str]:
 
 
 def write_outputs(output_dir: str, outputs: list[dict]) -> None:
+    prepare_output_store(output_dir)
+    for idx, item in enumerate(outputs, start=1):
+        write_output_record(output_dir, idx, item)
+    logger.info("Wrote %d outputs to %s", len(outputs), output_dir)
+
+
+def prepare_output_store(output_dir: str) -> None:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
+    for case_file in out_path.glob("case_*.json"):
+        case_file.unlink()
+
     jsonl_path = out_path / "predictions.jsonl"
-    with jsonl_path.open("w", encoding="utf-8") as f:
-        for idx, item in enumerate(outputs, start=1):
-            (out_path / f"case_{idx:04d}.json").write_text(
-                json.dumps(item, indent=2),
-                encoding="utf-8",
-            )
-            f.write(json.dumps(item) + "\n")
-    logger.info("Wrote %d outputs to %s", len(outputs), output_dir)
+    jsonl_path.write_text("", encoding="utf-8")
+
+
+def write_output_record(output_dir: str, report_index: int, output: dict) -> None:
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    (out_path / f"case_{report_index:04d}.json").write_text(
+        json.dumps(output, indent=2),
+        encoding="utf-8",
+    )
+    with (out_path / "predictions.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps(output) + "\n")
