@@ -157,9 +157,12 @@ class HFAdapter(BaseModelAdapter):
 
     def parse(self, raw: str):
         json_payload = self._extract_json_payload(raw)
+        allowed_diagnoses = (
+            None if self.decoder_name == "none" else self.allowed_diagnoses
+        )
         return validate_pathology_output(
             json_payload,
-            allowed_diagnoses=self.allowed_diagnoses,
+            allowed_diagnoses=allowed_diagnoses,
         )
 
     @staticmethod

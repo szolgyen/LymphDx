@@ -19,7 +19,11 @@ def create_decoder(
     resolved_decoder = decoder_name.strip().lower()
 
     if resolved_decoder == "none":
-        return NoneDecoder(prompt_formatter=prompt_formatter)
+        return NoneDecoder(
+            backend=backend_name,
+            prompt_formatter=prompt_formatter,
+            logger=logger,
+        )
 
     if resolved_decoder == "guidance":
         if backend_name != "hf":

@@ -19,27 +19,19 @@ class StrictJsonDecoder(BaseDecoder):
         self._logger = logger
 
     def validate_ready(self) -> None:
-        if not self._allowed_diagnoses:
-            raise ValueError(
-                f"decoder='{self.name}' requires non-empty allowed_diagnoses for strict constraints"
-            )
+        return None
+
+    @staticmethod
+    def _build_json_output_guard() -> str:
+        return (
+            "\n\nSTRICT JSON MODE:\n"
+            "- You MUST output exactly one valid JSON object matching the requested schema.\n"
+            "- Do not output any explanation or markdown.\n"
+        )
 
     def prepare_prompt(self, prompt: str, tokenizer: Any) -> str:
         self.validate_ready()
-
-        diagnosis_terms = "\n".join(
-            f"- {term}" for term in sorted(self._allowed_diagnoses or set())
-        )
-        strict_suffix = (
-            f"\n\nSTRICT DECODER MODE ({self.name}):\n"
-            "- You MUST output exactly one valid JSON object matching the requested schema.\n"
-            "- primary_diagnosis must be selected from the allowed list below.\n"
-            "- differential_diagnoses terms must all be selected from the allowed list below.\n"
-            "- Do not output any explanation or markdown.\n"
-            "ALLOWED DIAGNOSES:\n"
-            f"{diagnosis_terms}\n"
-        )
-        guarded_prompt = prompt + strict_suffix
+        guarded_prompt = prompt + self._build_json_output_guard()
 
         if self._logger is not None:
             self._logger.info(
@@ -53,12 +45,6 @@ class StrictJsonDecoder(BaseDecoder):
         return self._prompt_formatter(guarded_prompt, tokenizer)
 
     def _build_schema(self) -> dict[str, Any]:
-        allowed = sorted(self._allowed_diagnoses or set())
-        if not allowed:
-            raise ValueError(
-                f"decoder='{self.name}' requires non-empty allowed_diagnoses for strict constraints"
-            )
-
         return {
             "type": "object",
             "additionalProperties": False,
@@ -66,14 +52,14 @@ class StrictJsonDecoder(BaseDecoder):
                 "schema_version": {"type": "string", "enum": ["v2"]},
                 "primary_diagnosis": {
                     "anyOf": [
-                        {"type": "string", "enum": allowed},
+                        {"type": "string"},
                         {"type": "null"},
                     ]
                 },
                 "differential_diagnoses": {
                     "type": "array",
                     "maxItems": 10,
-                    "items": {"type": "string", "enum": allowed},
+                    "items": {"type": "string"},
                 },
                 "specimen": {
                     "anyOf": [

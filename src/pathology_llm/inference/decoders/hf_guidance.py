@@ -3,10 +3,13 @@ import logging
 import time
 from typing import Any, Callable
 
-from pathology_llm.inference.decoders.strict_json import StrictJsonDecoder
+from pathology_llm.inference.decoders.diagnosis_constraints import (
+    DiagnosisConstraintsMixin,
+)
+from pathology_llm.inference.decoders.json_contraints import StrictJsonDecoder
 
 
-class HFGuidanceDecoder(StrictJsonDecoder):
+class HFGuidanceDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
     """HF guidance decoder placeholder with explicit strategy boundary."""
 
     name = "guidance"
@@ -32,6 +35,26 @@ class HFGuidanceDecoder(StrictJsonDecoder):
                 "decoder='guidance' requires the 'guidance' package, but it is not installed"
             )
         super().validate_ready()
+        self.validate_diagnosis_constraints()
+
+    def prepare_prompt(self, prompt: str, tokenizer: Any) -> str:
+        self.validate_ready()
+
+        guarded_prompt = (
+            prompt
+            + self._build_json_output_guard()
+            + self.build_diagnosis_constraints_prompt_suffix()
+        )
+        if self._logger is not None:
+            self._logger.info(
+                "Using strict %s decoder constraints with %d allowed diagnoses",
+                self.name,
+                len(self._allowed_diagnoses or set()),
+            )
+
+        if self._prompt_formatter is None:
+            return guarded_prompt
+        return self._prompt_formatter(guarded_prompt, tokenizer)
 
     def get_generation_kwargs(self, tokenizer: Any) -> dict[str, Any]:
         # Strict mode uses deterministic decoding and no sampling.
@@ -54,7 +77,7 @@ class HFGuidanceDecoder(StrictJsonDecoder):
         import guidance.chat as guidance_chat
 
         prompt_for_model = self.prepare_prompt(prompt, tokenizer)
-        schema = self._build_schema()
+        schema = self.apply_diagnosis_constraints_to_schema(self._build_schema())
 
         if self._logger is not None:
             self._logger.info("Guidance decoding started")
