@@ -4,6 +4,8 @@ import logging
 import time
 from typing import Any, Callable
 
+from pydantic import BaseModel
+
 from pathology_llm.inference.decoders.diagnosis_constraints import (
     DiagnosisConstraintsMixin,
 )
@@ -22,12 +24,14 @@ class OutlinesDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
         prompt_formatter: Callable[[str, Any], str] | None = None,
         logger: logging.Logger | None = None,
         runtime_available: bool | None = None,
+        schema_model: type[BaseModel] | None = None,
     ):
         self.backend = backend
         super().__init__(
             allowed_diagnoses=allowed_diagnoses,
             prompt_formatter=prompt_formatter,
             logger=logger,
+            schema_model=schema_model,
         )
         if runtime_available is None:
             self._runtime_available = importlib.util.find_spec("outlines") is not None

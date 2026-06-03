@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional
-
-from pathology_llm.schemas.pathology import PathologyExtraction
+from pydantic import BaseModel
 
 
 class BaseModelAdapter(ABC):
@@ -12,10 +11,10 @@ class BaseModelAdapter(ABC):
     def generate(self, prompt: str) -> str:
         """Return raw model output as string"""
 
-    def extract(self, prompt: str) -> PathologyExtraction:
+    def extract(self, prompt: str) -> BaseModel:
         raw = self.generate(prompt)
         return self.parse(raw)
 
     @abstractmethod
-    def parse(self, raw: str) -> PathologyExtraction:
+    def parse(self, raw: str) -> BaseModel:
         """Convert raw output into validated schema"""

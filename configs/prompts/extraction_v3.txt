@@ -3,39 +3,36 @@ You are a medical information extraction system.
 TASK:
 Extract structured data from the pathology report.
 
+
 INSTRUCTIONS:
 - Output ONLY valid JSON.
 - Do NOT output markdown or explanations.
 - Use only information explicitly stated in the report.
-- Do NOT infer or hallucinate.
+- Do NOT infer, interpret, or hallucinate.
 - If information is not mentioned, use null.
 - Preserve original wording where possible.
+
 
 DEFINITIONS:
 - "is_definitive":
   True only if the report states a definitive diagnosis.
-  False for uncertain, equivocal, suspicious, favor, possible, or differential-only language.
+  False for uncertain, equivocal, suspicious, possible, probable, favor, likely, suggestive, differential-only, or pending-diagnostic language.
 
 - "primary_diagnosis":
-  The main definitive diagnosis.
+  The main definitive diagnosis stated in the report.
+  If multiple diagnoses are present, select the most specific definitive diagnosis that appears to represent the primary pathologic finding.
   Null if no definitive diagnosis exists.
 
-- "has_differential_diagnosis":
-  True if one or more differential diagnoses are explicitly listed.
-  False if no or only one definitive diagnosis is stated.
-
-- "differential_diagnoses":
-  Array of differential diagnoses explicitly mentioned in the report.
-  Use [] if none are present.
-
-- "specimen":
-  Specimen type explicitly stated in the report.
-
-- "is_lymph_node":
-  True if the specimen is identified as a lymph node.
+- "containers":
+  A list of structured container information. Each container has:
+  - "label": container or part identifier (for example: "A.", "B.", "Part A", "A, B & C").
+  - "specimen": specimen source/site associated with that container.
+  - "is_lymph_node": True if the specimen is identified as a lymph node, False otherwise.
+  - "anatomic_location": Anatomical site explicitly stated in the report.
+  - "diagnosis": diagnosis statement tied to the container.
 
 - "has_prior_malignancy":
-  True if prior malignancy history is explicitly mentioned.
+  True if previously diagnosed malignancy history is explicitly mentioned.
   False if explicitly denied.
   Null if not mentioned.
 
@@ -44,39 +41,41 @@ DEFINITIONS:
   False if explicitly denied.
   Null if not mentioned.
 
-- "anatomic_location":
-  Anatomical site explicitly stated in the report.
-
-- "container":
-  Specimen container or part identifier (e.g. "A", "B", "Part A") if explicitly stated.
-
-- "biomarkers":
-  Include explicitly reported biomarkers, immunostains, molecular markers, receptor status, or mutation results.
-  Preserve reported values exactly.
-
 - "confidence":
   Overall extraction confidence from 0.0 to 1.0.
 
+
+REPORT STRUCTURE HINT (heuristic only):
+
+Pathology reports are organized into labeled specimen containers (for example: "A.", "B.", "A&B", "A-D.", etc.).
+
+When present:
+- Each container label usually introduces a separate specimen.
+- The text following the label often contains:
+  - specimen source or location,
+  - specimen type,
+  - diagnosis or findings for that specimen.
+
+A later "Comment" section may discuss findings across multiple containers and may reference specific parts (for example, "Part A" or "Part C").
+
+
 OUTPUT SCHEMA:
 {
-  "schema_version": "v2",
-  "is_definitive": boolean,
-  "primary_diagnosis": string or null,
-  "has_differential_diagnosis": boolean,
-  "differential_diagnoses": [string],
-  "specimen": string or null,
-  "is_lymph_node": boolean,
-  "has_prior_malignancy": boolean or null,
-  "has_concurrent_malignancy": boolean or null,
-  "anatomic_location": string or null,
-  "container": string or null,
-  "biomarkers": [
-    {
-      "name": string,
-      "value": string or null
-    }
-  ],
-  "confidence": number or null
+    "schema_version": "v3",
+    "is_definitive": boolean,
+    "primary_diagnosis": string or null,
+    "containers": [
+        {
+            "label": string or null,
+            "specimen": string or null,
+            "is_lymph_node": boolean or null,
+            "anatomic_location": string or null,
+            "diagnosis": string or null
+        },
+    ],
+    "has_prior_malignancy": boolean or null,
+    "has_concurrent_malignancy": boolean or null,
+    "confidence": number or null
 }
 
 PATHOLOGY REPORT:

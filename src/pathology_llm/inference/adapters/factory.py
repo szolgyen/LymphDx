@@ -1,5 +1,7 @@
 import logging
 
+from pydantic import BaseModel
+
 from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.inference.adapters.dummy import DummyAdapter
 from pathology_llm.inference.adapters.hf import HFAdapter
@@ -46,6 +48,7 @@ def create_adapter(
     model: str,
     decoder: str = "auto",
     allowed_diagnoses: set[str] | None = None,
+    schema_model: type[BaseModel] | None = None,
 ) -> BaseModelAdapter:
     backend_name = backend.strip().lower()
     if backend_name not in SUPPORTED_BACKENDS:
@@ -69,6 +72,7 @@ def create_adapter(
             model=model,
             decoder=resolved_decoder,
             allowed_diagnoses=allowed_diagnoses,
+            schema_model=schema_model,
         )
 
     if backend_name == "vllm":

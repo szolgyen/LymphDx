@@ -1,6 +1,8 @@
 import logging
 from typing import Any, Callable
 
+from pydantic import BaseModel
+
 from pathology_llm.inference.decoders.base import BaseDecoder
 from pathology_llm.inference.decoders.hf_guidance import HFGuidanceDecoder
 from pathology_llm.inference.decoders.none import NoneDecoder
@@ -14,6 +16,7 @@ def create_decoder(
     allowed_diagnoses: set[str] | None = None,
     prompt_formatter: Callable[[str, Any], str] | None = None,
     logger: logging.Logger | None = None,
+    schema_model: type[BaseModel] | None = None,
 ) -> BaseDecoder:
     backend_name = backend.strip().lower()
     resolved_decoder = decoder_name.strip().lower()
@@ -23,6 +26,7 @@ def create_decoder(
             backend=backend_name,
             prompt_formatter=prompt_formatter,
             logger=logger,
+            schema_model=schema_model,
         )
 
     if resolved_decoder == "guidance":
@@ -34,6 +38,7 @@ def create_decoder(
             allowed_diagnoses=allowed_diagnoses,
             prompt_formatter=prompt_formatter,
             logger=logger,
+            schema_model=schema_model,
         )
 
     if resolved_decoder == "outlines":
@@ -42,6 +47,7 @@ def create_decoder(
             allowed_diagnoses=allowed_diagnoses,
             prompt_formatter=prompt_formatter,
             logger=logger,
+            schema_model=schema_model,
         )
 
     if resolved_decoder == "sglang":

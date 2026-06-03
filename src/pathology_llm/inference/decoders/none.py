@@ -1,6 +1,8 @@
 import importlib.util
 from typing import Any, Callable
 
+from pydantic import BaseModel
+
 from pathology_llm.inference.decoders.json_contraints import StrictJsonDecoder
 
 
@@ -15,11 +17,13 @@ class NoneDecoder(StrictJsonDecoder):
         prompt_formatter: Callable[[str, Any], str] | None = None,
         logger: Any = None,
         runtime_available: bool | None = None,
+        schema_model: type[BaseModel] | None = None,
     ):
         super().__init__(
             allowed_diagnoses=None,
             prompt_formatter=prompt_formatter,
             logger=logger,
+            schema_model=schema_model,
         )
         self.backend = backend
         if runtime_available is None:

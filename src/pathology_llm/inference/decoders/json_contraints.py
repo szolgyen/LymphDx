@@ -5,7 +5,7 @@ from typing import Any, Callable
 from pydantic import BaseModel
 
 from pathology_llm.inference.decoders.base import BaseDecoder
-from pathology_llm.schemas.pathology import PathologyExtraction
+from pathology_llm.schemas.pathology import PathologyExtractionV2
 
 
 class StrictJsonDecoder(BaseDecoder):
@@ -21,7 +21,7 @@ class StrictJsonDecoder(BaseDecoder):
         self._allowed_diagnoses = allowed_diagnoses
         self._prompt_formatter = prompt_formatter
         self._logger = logger
-        self._schema_model = schema_model or PathologyExtraction
+        self._schema_model = schema_model or PathologyExtractionV2
 
     def validate_ready(self) -> None:
         return None

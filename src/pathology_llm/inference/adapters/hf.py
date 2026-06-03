@@ -2,12 +2,14 @@ import json
 import logging
 from typing import Any
 
+from pydantic import BaseModel
+
 from pathology_llm.inference.decoders.base import BaseDecoder
 from pathology_llm.inference.decoders.factory import create_decoder
 from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.schemas.validation import (
     SchemaValidationError,
-    validate_pathology_output,
+    validate_output,
 )
 
 
@@ -25,6 +27,7 @@ class HFAdapter(BaseModelAdapter):
         model: str,
         decoder: str,
         allowed_diagnoses: set[str] | None = None,
+        schema_model: type[BaseModel] | None = None,
         max_new_tokens: int = 512,
         temperature: float = 0.0,
         device_map: str = "auto",
@@ -42,12 +45,14 @@ class HFAdapter(BaseModelAdapter):
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self.device_map = device_map
+        self.schema_model = schema_model
         self._decoder: BaseDecoder = create_decoder(
             backend=self.backend_name,
             decoder_name=decoder_name,
             allowed_diagnoses=allowed_diagnoses,
             prompt_formatter=self._format_prompt_for_json,
             logger=logger,
+            schema_model=schema_model,
         )
         self._tokenizer = None
         self._model = None
@@ -160,8 +165,9 @@ class HFAdapter(BaseModelAdapter):
         allowed_diagnoses = (
             None if self.decoder_name == "none" else self.allowed_diagnoses
         )
-        return validate_pathology_output(
+        return validate_output(
             json_payload,
+            schema_model=self.schema_model,
             allowed_diagnoses=allowed_diagnoses,
         )
 

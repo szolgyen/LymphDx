@@ -1,11 +1,11 @@
 import logging
 from pathlib import Path
 from typing import Callable
+from pydantic import BaseModel
 
 from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.preprocessing.data_parsing import ParsedReport
 from pathology_llm.prompting.prompt_builder import build_extraction_prompt_from_template
-from pathology_llm.schemas.pathology import PathologyExtraction
 
 
 logger = logging.getLogger(__name__)
@@ -28,10 +28,10 @@ class ExtractionPipeline:
     def extract_reports(
         self,
         reports: list[ParsedReport],
-        on_success: Callable[[int, PathologyExtraction, str], None] | None = None,
-    ) -> list[PathologyExtraction]:
+        on_success: Callable[[int, BaseModel, str], None] | None = None,
+    ) -> list[BaseModel]:
         logger.info("Extracting structured outputs for %d reports", len(reports))
-        outputs: list[PathologyExtraction] = []
+        outputs: list[BaseModel] = []
         errors: dict[int, str] = {}
 
         for idx, report in enumerate(reports, start=1):

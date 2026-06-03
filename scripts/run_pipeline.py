@@ -7,6 +7,7 @@ import yaml
 
 from pathology_llm.extraction.pipeline import ExtractionPipeline
 from pathology_llm.inference.adapters.factory import create_adapter
+from pathology_llm.schemas.registry import get_prompt_template_path, get_schema_model
 from pathology_llm.utils.logging_config import configure_logging
 from pathology_llm.utils.utils import (
     load_reports,
@@ -24,8 +25,8 @@ CONFIG_DEFAULTS: dict[str, Any] = {
     "backend": "dummy",
     "model": "google/medgemma-4b-it",
     "decoder": "auto",
+    "schema": "v2",
     "input_file": None,
-    "prompt_template": "configs/prompts/extraction_v2.txt",
     "diagnosis_terms_file": "configs/extraction/diagnosis_terms_v1.txt",
     "output_dir": "outputs/predictions",
     "log_level": "INFO",
@@ -86,6 +87,8 @@ def load_config(config_path: str) -> dict[str, Any]:
 def main() -> int:
     args = parse_args()
     config = load_config(args.config)
+    schema_model = get_schema_model(config["schema"])
+    prompt_template_path = get_prompt_template_path(config["schema"])
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = Path("outputs/logs") / f"run_pipeline_{timestamp}.log"
@@ -106,10 +109,11 @@ def main() -> int:
             model=config["model"],
             decoder=config["decoder"],
             allowed_diagnoses=allowed_diagnoses,
+            schema_model=schema_model,
         )
         pipeline = ExtractionPipeline(
             adapter=adapter,
-            prompt_template_path=config["prompt_template"],
+            prompt_template_path=prompt_template_path,
             allowed_diagnoses=allowed_diagnoses,
             include_diagnosis_constraints=(config["decoder"] != "none"),
         )
