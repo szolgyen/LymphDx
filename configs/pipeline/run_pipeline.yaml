@@ -1,0 +1,27 @@
+# ReportLLM pipeline configuration
+# Use this file with:
+#   .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
+
+# Inference backend: dummy | hf | vllm | sglang | ollama
+backend: hf
+
+# Model identifier: google/medgemma-4b-it | google/medgemma-1.5-4b-it | aaditya/Llama3-OpenBioLLM-8B
+model: aaditya/Llama3-OpenBioLLM-8B
+
+# Decoder: auto | none | guidance | outlines
+decoder: none
+
+# Input reports file (.txt one-per-line or .xlsx with Number/Final Diagnosis columns)
+input_file: configs/extraction/test_dataset.xlsx
+
+# Prompt template path
+prompt_template: configs/prompts/extraction_v2.txt
+
+# Text file with one allowed diagnosis per line
+diagnosis_terms_file: configs/extraction/diagnostic_terms_05302026_reduced.txt
+
+# Directory for extracted JSON outputs
+output_dir: outputs/predictions/guidance
+
+# Logging level: DEBUG | INFO | WARNING | ERROR | CRITICAL
+log_level: INFO

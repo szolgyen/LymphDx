@@ -2,6 +2,8 @@ import argparse
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
+import yaml
 
 from pathology_llm.extraction.pipeline import ExtractionPipeline
 from pathology_llm.inference.adapters.factory import create_adapter
@@ -17,86 +19,104 @@ from pathology_llm.utils.utils import (
 logger = logging.getLogger(__name__)
 
 
+CONFIG_DEFAULTS: dict[str, Any] = {
+    "backend": "dummy",
+    "model": "google/medgemma-4b-it",
+    "decoder": "auto",
+    "input_file": None,
+    "prompt_template": "configs/prompts/extraction_v2.txt",
+    "diagnosis_terms_file": "configs/extraction/diagnosis_terms_v1.txt",
+    "output_dir": "outputs/predictions",
+    "log_level": "INFO",
+}
+
+CHOICES: dict[str, set[str]] = {
+    "backend": {"dummy", "hf", "vllm", "sglang", "ollama"},
+    "decoder": {"auto", "none", "sglang", "guidance", "outlines"},
+    "log_level": {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},
+}
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run pathology extraction pipeline")
-    parser.add_argument(
-        "--backend",
-        default="dummy",
-        choices=["dummy", "hf", "vllm", "sglang", "ollama"],
-        help="Inference backend",
+    parser = argparse.ArgumentParser(
+        description="Run pathology extraction pipeline from YAML config"
     )
     parser.add_argument(
-        "--model",
-        default="google/medgemma-4b-it",
-        help="Model identifier for selected backend",
-    )
-    parser.add_argument(
-        "--decoder",
-        default="auto",
-        choices=["auto", "none", "sglang", "guidance", "outlines"],
-        help="Constrained decoder implementation",
-    )
-    parser.add_argument(
-        "--input-file",
-        required=True,
-        help="Path to input reports file (.txt one-per-line or .xlsx with Number/Final Diagnosis columns)",
-    )
-    parser.add_argument(
-        "--prompt-template",
-        default="configs/prompts/extraction_v2.txt",
-        help="Prompt template path",
-    )
-    parser.add_argument(
-        "--diagnosis-terms-file",
-        default="configs/extraction/diagnosis_terms_v1.txt",
-        help="Text file with one allowed diagnosis per line",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="outputs/predictions",
-        help="Directory for extracted JSON outputs",
-    )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Framework log level",
+        "--config",
+        default="configs/pipeline/run_pipeline.yaml",
+        help="Path to YAML config file containing all pipeline options",
     )
     return parser.parse_args()
 
 
+def load_config(config_path: str) -> dict[str, Any]:
+
+    path = Path(config_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("Pipeline config must be a YAML mapping/object")
+
+    unknown_keys = sorted(set(raw) - set(CONFIG_DEFAULTS))
+    if unknown_keys:
+        raise ValueError(f"Unknown config keys: {unknown_keys}")
+
+    config = dict(CONFIG_DEFAULTS)
+    config.update(raw)
+
+    if not config["input_file"]:
+        raise ValueError("Config key 'input_file' is required")
+
+    for key, allowed in CHOICES.items():
+        value = str(config[key]).strip()
+        if value not in allowed:
+            raise ValueError(
+                f"Invalid value for '{key}': {value!r}. Allowed: {sorted(allowed)}"
+            )
+        config[key] = value
+
+    return config
+
+
 def main() -> int:
     args = parse_args()
+    config = load_config(args.config)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = Path("outputs/logs") / f"run_pipeline_{timestamp}.log"
-    configure_logging(args.log_level, log_file=str(log_file))
+    configure_logging(config["log_level"], log_file=str(log_file))
 
     try:
         logger.info("Logging to file %s", log_file)
         logger.info(
             "Starting pipeline backend=%s model=%s decoder=%s",
-            args.backend,
-            args.model,
-            args.decoder,
+            config["backend"],
+            config["model"],
+            config["decoder"],
         )
-        allowed_diagnoses = load_diagnosis_terms(args.diagnosis_terms_file)
-        reports = load_reports(args.input_file)
+        allowed_diagnoses = load_diagnosis_terms(config["diagnosis_terms_file"])
+        reports = load_reports(config["input_file"])
         adapter = create_adapter(
-            backend=args.backend,
-            model=args.model,
-            decoder=args.decoder,
+            backend=config["backend"],
+            model=config["model"],
+            decoder=config["decoder"],
             allowed_diagnoses=allowed_diagnoses,
         )
         pipeline = ExtractionPipeline(
             adapter=adapter,
-            prompt_template_path=args.prompt_template,
+            prompt_template_path=config["prompt_template"],
             allowed_diagnoses=allowed_diagnoses,
+            include_diagnosis_constraints=config["decoder"] != "none",
         )
-        prepare_output_store(args.output_dir)
+        prepare_output_store(config["output_dir"])
 
         def _persist_output(report_index: int, extraction_output) -> None:
             write_output_record(
-                output_dir=args.output_dir,
+                output_dir=config["output_dir"],
                 report_index=report_index,
                 output=extraction_output.model_dump(),
             )
@@ -112,7 +132,7 @@ def main() -> int:
         logger.info(
             "Pipeline completed successfully reports=%d output_dir=%s (incremental writes enabled)",
             len(extraction_outputs),
-            args.output_dir,
+            config["output_dir"],
         )
     except Exception as exc:
         logger.exception("Pipeline failed: %s", exc)
