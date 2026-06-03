@@ -24,9 +24,11 @@ class OutlinesDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
         runtime_available: bool | None = None,
     ):
         self.backend = backend
-        self._allowed_diagnoses = allowed_diagnoses
-        self._prompt_formatter = prompt_formatter
-        self._logger = logger
+        super().__init__(
+            allowed_diagnoses=allowed_diagnoses,
+            prompt_formatter=prompt_formatter,
+            logger=logger,
+        )
         if runtime_available is None:
             self._runtime_available = importlib.util.find_spec("outlines") is not None
         else:

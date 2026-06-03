@@ -10,12 +10,15 @@ class Biomarker(BaseModel):
 class PathologyExtraction(BaseModel):
     schema_version: Literal["v2"] = Field(default="v2", frozen=True)
 
-    case_id: Optional[int] = None
+    case_id: Optional[int] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-decoder-exclude": True},
+    )
 
     primary_diagnosis: Optional[str] = None
 
     has_differential_diagnosis: Optional[bool] = None
-    differential_diagnoses: List[str] = Field(default_factory=list)
+    differential_diagnoses: List[str] = Field(default_factory=list, max_length=10)
 
     specimen: Optional[str] = None
     is_lymph_node: Optional[bool] = None

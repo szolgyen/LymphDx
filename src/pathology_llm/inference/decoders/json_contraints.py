@@ -2,7 +2,10 @@ import json
 import logging
 from typing import Any, Callable
 
+from pydantic import BaseModel
+
 from pathology_llm.inference.decoders.base import BaseDecoder
+from pathology_llm.schemas.pathology import PathologyExtraction
 
 
 class StrictJsonDecoder(BaseDecoder):
@@ -13,10 +16,12 @@ class StrictJsonDecoder(BaseDecoder):
         allowed_diagnoses: set[str] | None = None,
         prompt_formatter: Callable[[str, Any], str] | None = None,
         logger: logging.Logger | None = None,
+        schema_model: type[BaseModel] | None = None,
     ):
         self._allowed_diagnoses = allowed_diagnoses
         self._prompt_formatter = prompt_formatter
         self._logger = logger
+        self._schema_model = schema_model or PathologyExtraction
 
     def validate_ready(self) -> None:
         return None
@@ -45,110 +50,53 @@ class StrictJsonDecoder(BaseDecoder):
         return self._prompt_formatter(guarded_prompt, tokenizer)
 
     def _build_schema(self) -> dict[str, Any]:
-        return {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "schema_version": {"type": "string", "enum": ["v2"]},
-                "primary_diagnosis": {
-                    "anyOf": [
-                        {"type": "string"},
-                        {"type": "null"},
+        schema = self._schema_model.model_json_schema()
+        self._remove_decoder_excluded_fields(schema)
+        self._apply_strict_object_rules(schema)
+        return schema
+
+    @classmethod
+    def _remove_decoder_excluded_fields(cls, node: Any) -> None:
+        if isinstance(node, dict):
+            properties = node.get("properties")
+            required = node.get("required")
+            if isinstance(properties, dict):
+                excluded_keys = [
+                    key
+                    for key, value in properties.items()
+                    if isinstance(value, dict)
+                    and value.get("x-reportllm-decoder-exclude") is True
+                ]
+                for key in excluded_keys:
+                    properties.pop(key, None)
+                if isinstance(required, list):
+                    node["required"] = [
+                        key for key in required if key not in excluded_keys
                     ]
-                },
-                "differential_diagnoses": {
-                    "type": "array",
-                    "maxItems": 10,
-                    "items": {"type": "string"},
-                },
-                "specimen": {
-                    "anyOf": [
-                        {"type": "string"},
-                        {"type": "null"},
-                    ]
-                },
-                "is_lymph_node": {
-                    "anyOf": [
-                        {"type": "boolean"},
-                        {"type": "null"},
-                    ]
-                },
-                "is_definitive": {
-                    "anyOf": [
-                        {"type": "boolean"},
-                        {"type": "null"},
-                    ]
-                },
-                "has_differential_diagnosis": {
-                    "anyOf": [
-                        {"type": "boolean"},
-                        {"type": "null"},
-                    ]
-                },
-                "has_prior_malignancy": {
-                    "anyOf": [
-                        {"type": "boolean"},
-                        {"type": "null"},
-                    ]
-                },
-                "has_concurrent_malignancy": {
-                    "anyOf": [
-                        {"type": "boolean"},
-                        {"type": "null"},
-                    ]
-                },
-                "anatomic_location": {
-                    "anyOf": [
-                        {"type": "string"},
-                        {"type": "null"},
-                    ]
-                },
-                "container": {
-                    "anyOf": [
-                        {"type": "string"},
-                        {"type": "null"},
-                    ]
-                },
-                "biomarkers": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "additionalProperties": False,
-                        "properties": {
-                            "name": {"type": "string"},
-                            "value": {
-                                "anyOf": [
-                                    {"type": "string"},
-                                    {"type": "null"},
-                                ]
-                            },
-                        },
-                        "required": ["name", "value"],
-                    },
-                },
-                "confidence": {
-                    "anyOf": [
-                        {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                        {"type": "null"},
-                    ]
-                },
-            },
-            "required": [
-                "schema_version",
-                "primary_diagnosis",
-                "has_differential_diagnosis",
-                "differential_diagnoses",
-                "specimen",
-                "is_lymph_node",
-                "is_definitive",
-                "has_prior_malignancy",
-                "has_concurrent_malignancy",
-                "anatomic_location",
-                "container",
-                "biomarkers",
-                "confidence",
-            ],
-        }
+
+            for value in node.values():
+                cls._remove_decoder_excluded_fields(value)
+            return
+
+        if isinstance(node, list):
+            for item in node:
+                cls._remove_decoder_excluded_fields(item)
+
+    @classmethod
+    def _apply_strict_object_rules(cls, node: Any) -> None:
+        if isinstance(node, dict):
+            properties = node.get("properties")
+            if isinstance(properties, dict):
+                node["required"] = list(properties.keys())
+                node["additionalProperties"] = False
+
+            for value in node.values():
+                cls._apply_strict_object_rules(value)
+            return
+
+        if isinstance(node, list):
+            for item in node:
+                cls._apply_strict_object_rules(item)
 
     @staticmethod
     def _json_dumps(payload: Any) -> str:
