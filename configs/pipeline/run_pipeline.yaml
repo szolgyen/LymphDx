@@ -6,7 +6,7 @@
 backend: hf
 
 # Model identifier: google/medgemma-4b-it | google/medgemma-1.5-4b-it | aaditya/Llama3-OpenBioLLM-8B
-model: aaditya/Llama3-OpenBioLLM-8B
+model: google/medgemma-4b-it
 
 # Decoder: auto | none | guidance | outlines
 decoder: none

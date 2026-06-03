@@ -13,6 +13,7 @@ from pathology_llm.utils.utils import (
     load_diagnosis_terms,
     prepare_output_store,
     write_output_record,
+    write_prompt_record,
 )
 
 
@@ -110,15 +111,20 @@ def main() -> int:
             adapter=adapter,
             prompt_template_path=config["prompt_template"],
             allowed_diagnoses=allowed_diagnoses,
-            include_diagnosis_constraints=config["decoder"] != "none",
+            include_diagnosis_constraints=(config["decoder"] != "none"),
         )
         prepare_output_store(config["output_dir"])
 
-        def _persist_output(report_index: int, extraction_output) -> None:
+        def _persist_output(report_index: int, extraction_output, prompt: str) -> None:
             write_output_record(
                 output_dir=config["output_dir"],
                 report_index=report_index,
                 output=extraction_output.model_dump(),
+            )
+            write_prompt_record(
+                output_dir=config["output_dir"],
+                report_index=report_index,
+                prompt=prompt,
             )
 
         extraction_outputs = pipeline.extract_reports(

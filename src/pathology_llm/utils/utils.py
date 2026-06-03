@@ -61,6 +61,8 @@ def prepare_output_store(output_dir: str) -> None:
 
     for case_file in out_path.glob("case_*.json"):
         case_file.unlink()
+    for case_prompt in out_path.glob("case_*.txt"):
+        case_prompt.unlink()
 
     jsonl_path = out_path / "predictions.jsonl"
     jsonl_path.write_text("", encoding="utf-8")
@@ -76,3 +78,13 @@ def write_output_record(output_dir: str, report_index: int, output: dict) -> Non
     )
     with (out_path / "predictions.jsonl").open("a", encoding="utf-8") as f:
         f.write(json.dumps(output) + "\n")
+
+
+def write_prompt_record(output_dir: str, report_index: int, prompt: str) -> None:
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    (out_path / f"case_{report_index:04d}.txt").write_text(
+        prompt,
+        encoding="utf-8",
+    )

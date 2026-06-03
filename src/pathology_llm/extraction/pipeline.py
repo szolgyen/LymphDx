@@ -17,16 +17,18 @@ class ExtractionPipeline:
         adapter: BaseModelAdapter,
         prompt_template_path: str,
         allowed_diagnoses: set[str],
+        include_diagnosis_constraints: bool = True,
     ):
         self.adapter = adapter
         self.prompt_template_path = prompt_template_path
         self.allowed_diagnoses = allowed_diagnoses
+        self.include_diagnosis_constraints = include_diagnosis_constraints
         self.prompt_template = Path(prompt_template_path).read_text(encoding="utf-8")
 
     def extract_reports(
         self,
         reports: list[ParsedReport],
-        on_success: Callable[[int, PathologyExtraction], None] | None = None,
+        on_success: Callable[[int, PathologyExtraction, str], None] | None = None,
     ) -> list[PathologyExtraction]:
         logger.info("Extracting structured outputs for %d reports", len(reports))
         outputs: list[PathologyExtraction] = []
@@ -39,13 +41,14 @@ class ExtractionPipeline:
                     template=self.prompt_template,
                     input_text=report.text,
                     allowed_diagnoses=self.allowed_diagnoses,
+                    include_diagnosis_constraints=self.include_diagnosis_constraints,
                 )
                 logger.debug("Running extraction for report_index=%d", idx)
                 extraction = self.adapter.extract(prompt)
                 extraction.case_id = report.case_id
                 outputs.append(extraction)
                 if on_success is not None:
-                    on_success(idx, extraction)
+                    on_success(idx, extraction, prompt)
             except Exception as e:
                 logger.error(
                     "Failed to extract report_index=%d: %s",
