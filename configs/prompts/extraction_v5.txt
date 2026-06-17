@@ -42,8 +42,6 @@ DEFINITIONS:
   True if another concurrent malignancy is mentioned in the report.
   False if there is NOT any concurrent malignancy mentioned in the report. 
 
-- "confidence":
-  Overall extraction confidence from 0.0 to 1.0.
 
 
 REPORT STRUCTURE:
@@ -69,7 +67,7 @@ A "Comment" section may appear either immediately after each specimen descriptio
 
 OUTPUT SCHEMA:
 {
-    "schema_version": "v3",
+    "schema_version": "v5",
     "is_definitive": boolean,
     "primary_diagnosis": string or null,
     "containers": [
@@ -84,7 +82,6 @@ OUTPUT SCHEMA:
     "has_differential_diagnosis": boolean,
     "has_prior_malignancy": boolean,
     "has_concurrent_malignancy": boolean,
-    "confidence": number
 }
 
 PATHOLOGY REPORT:

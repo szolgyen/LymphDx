@@ -67,9 +67,45 @@ class PathologyExtractionV3(BaseModel):
     )
     is_definitive: Optional[bool] = None
     containers: Optional[List[ContainerInfo]] = None
+    has_differential_diagnosis: Optional[bool] = None
     has_prior_malignancy: Optional[bool] = None
     has_concurrent_malignancy: Optional[bool] = None
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
 
-schema_v3 = PathologyExtractionV3
+class PathologyExtractionV4(BaseModel):
+    schema_version: Literal["v4"] = Field(default="v4", frozen=True)
+
+    case_id: Optional[int] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-decoder-exclude": True},
+    )
+
+    primary_diagnosis: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-diagnosis-constrained": False},
+    )
+
+
+class PathologyExtractionV5(BaseModel):
+    schema_version: Literal["v5"] = Field(default="v5", frozen=True)
+
+    case_id: Optional[int] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-decoder-exclude": True},
+    )
+
+    primary_diagnosis: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-diagnosis-constrained": True},
+    )
+    is_definitive: Optional[bool] = None
+    containers: Optional[List[ContainerInfo]] = None
+    has_differential_diagnosis: Optional[bool] = None
+    has_prior_malignancy: Optional[bool] = None
+    has_concurrent_malignancy: Optional[bool] = None
+
+
+# schema_v3 = PathologyExtractionV3
+# schema_v4 = PathologyExtractionV4
+schema_v5 = PathologyExtractionV5

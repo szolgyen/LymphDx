@@ -1,0 +1,24 @@
+You are a medical information extraction system.
+
+I want you to follow protocol that I define below to extract structured data from the pathology report.
+
+
+PROTOCOL:
+1. Read the pathology report.
+2. Understand the report text and conclude a primary diagnostic term.
+3. Find the closest semantic match of the concluded primary diagnostic term in the ALLOWED DIAGNOSIS TERMS list below.
+4. Write the matched diagnostic term in the "primary_diagnosis" field in the OUTPUT SCHEMA.
+
+
+OUTPUT SCHEMA:
+{
+    "schema_version": "v3",
+    "primary_diagnosis": string or null,
+}
+
+
+PATHOLOGY REPORT:
+{input_text}
+
+
+JSON OUTPUT:
