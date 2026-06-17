@@ -28,30 +28,30 @@ DEFINITIONS:
   - "specimen": Specimen source/site associated with that container.
   - "is_lymph_node": True if the specimen is identified as a lymph node, False otherwise.
   - "anatomic_location": Anatomical site explicitly stated in the report.
-  - "diagnosis": Diagnosis statement tied to the container.
+  - "diagnosis": A concise diagnosis tied to the container.
 
-- "has_differential_diagnosis:
-  True if the report mentiones any differential diagnosis.
-  False if the report does not mantion any differential diagnosis.
+- "has_differential_diagnosis":
+  True if the report mentions any differential diagnosis.
+  False if the report does not mention any differential diagnosis.
 
 - "has_prior_malignancy":
-  True if any previously diagnosed malignancy is noted or mentioned in the report.
-  False if there is NOT any prior or previous malignancy mentioned in the report.
+  True if any previously diagnosed malignancy is mentioned in the report.
+  False if no prior malignancy is mentioned in the report.
 
 - "has_concurrent_malignancy":
   True if another concurrent malignancy is mentioned in the report.
-  False if there is NOT any concurrent malignancy mentioned in the report. 
+  False if no concurrent malignancy is mentioned in the report.
 
 
 
 REPORT STRUCTURE:
 
 Pathology reports are organized into labeled specimen containers. Labels may be
-- letters (for example: "A.", "B.", "Part A", "A, B & C"), 
-- integer numbers (for example: "1", "2"),
+- letters (for example: "A.", "B.", "Part A", "A, B & C")
+- integer numbers (for example: "1", "2")
 - codes and dates separated by a semicolon in parentheses (for example: "(AB12-345; 1/1/2002)", "(XY123-000034; 05/02/2024)", "(NM56-23456; 12/03/2025)").
 
-If the report has labels in the form of codes and dates separated by a semicolon in parentheses, extract only the code.
+If the report has labels in the form of codes and dates separated by a semicolon in parentheses, extract only the code portion.
 
 Each container label introduces a separate specimen:
 - If the report uses letters or integers as labels, the text after the label contains:
@@ -59,10 +59,10 @@ Each container label introduces a separate specimen:
   - specimen type,
   - diagnosis or findings for that specimen.
 - If the report uses codes and dates separated by a semicolon in parentheses as labels:
-  - specimen source, location, type precede before the label,
+  - specimen source, location, and type precede the label,
   - diagnosis or findings are after the label.
 
-A "Comment" section may appear either immediately after each specimen description or after all specimen descriptions, summarizing findings across one or more containers. Comments may reference specific parts (for example, "Part A" or "Part C").
+A "Comment" section may appear either immediately after each specimen description or after all specimen descriptions, summarizing findings across one or more containers. The comment section may reference specific parts (for example, "Part A" or "Part C").
 
 
 OUTPUT SCHEMA:
@@ -77,7 +77,7 @@ OUTPUT SCHEMA:
             "is_lymph_node": boolean or null,
             "anatomic_location": string or null,
             "diagnosis": string or null
-        },
+        }
     ],
     "has_differential_diagnosis": boolean,
     "has_prior_malignancy": boolean,
