@@ -239,7 +239,11 @@ def merge_predictions_into_validation_template(
         rows_by_case_id[normalized_id].append((row_num_offset, base_row))
 
     # For each case_id, fill rows with containers from JSONL in order
-    for normalized_id, rows_for_case in rows_by_case_id.items():
+    for normalized_id, rows_for_case in sorted(
+        rows_by_case_id.items(),
+        key=lambda x: x[1][-1][0],  # process bottom-up
+        reverse=True,
+    ):
         record = prediction_map.get(normalized_id)
 
         if record is None:
@@ -247,38 +251,61 @@ def merge_predictions_into_validation_template(
 
         containers = normalize_containers(record.get("containers"))
 
-        # Fill as many rows as exist for this case_id with containers in order
-        for row_offset, (row_num, base_row) in enumerate(rows_for_case):
-            # Get container at this index (or None if we run out of containers)
-            container = containers[row_offset] if row_offset < len(containers) else None
+        num_excel_rows = len(rows_for_case)
+        num_predicted = len(containers)
 
-            # Fill Predicted Report Diagnosis (case-level)
+        # --- CASE 1: fill existing rows ---
+        for row_offset, (row_num, base_row) in enumerate(rows_for_case):
+            container = containers[row_offset] if row_offset < num_predicted else None
+
+            # Case-level field (unchanged)
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Predicted Report Diagnosis"] + 1,
                 value=to_excel_value(record.get("primary_diagnosis")),
             )
 
-            # Fill Predicted Container (from container label)
-            predicted_container = resolve_container_label(container)
-            sheet.cell(
-                row=row_num,
-                column=header_indexes["Predicted Container"] + 1,
-                value=predicted_container,
-            )
+            # --- Handle missing containers ---
+            if container is None:
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container"] + 1,
+                    value=None,
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Is Lymph Node"] + 1,
+                    value=None,
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Diagnosis"] + 1,
+                    value=None,
+                )
+            else:
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container"] + 1,
+                    value=resolve_container_label(container),
+                )
 
-            # Fill container-level fields from the matched container
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Is Lymph Node"] + 1,
+                    value=resolve_container_field(container, "is_lymph_node"),
+                )
+
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Diagnosis"] + 1,
+                    value=resolve_container_field(container, "diagnosis"),
+                )
+
+            # Remaining unchanged fields
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Predicted Has Differential Diagnosis"] + 1,
                 value=to_excel_value(record.get("has_differential_diagnosis")),
-            )
-
-            container_is_lymph = resolve_container_field(container, "is_lymph_node")
-            sheet.cell(
-                row=row_num,
-                column=header_indexes["Predicted Is Lymph Node"] + 1,
-                value=container_is_lymph,
             )
 
             sheet.cell(
@@ -299,12 +326,45 @@ def merge_predictions_into_validation_template(
                 value=to_excel_value(record.get("has_concurrent_malignancy")),
             )
 
-            container_diagnosis = resolve_container_field(container, "diagnosis")
-            sheet.cell(
-                row=row_num,
-                column=header_indexes["Predicted Container Diagnosis"] + 1,
-                value=container_diagnosis,
-            )
+        # --- CASE 2: insert extra rows if predictions > excel rows ---
+        if num_predicted > num_excel_rows:
+            last_row_num = rows_for_case[-1][0]
+            insert_at = last_row_num + 1
+
+            extra_containers = containers[num_excel_rows:]
+
+            for container in extra_containers:
+                sheet.insert_rows(insert_at)
+
+                new_row = insert_at
+
+                # Id (copied from first row of this case block)
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Id"] + 1,
+                    value=rows_for_case[0][1][header_indexes["Id"]],
+                )
+
+                # Predicted Container
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container"] + 1,
+                    value=resolve_container_label(container),
+                )
+
+                # Predicted Is Lymph Node
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Is Lymph Node"] + 1,
+                    value=resolve_container_field(container, "is_lymph_node"),
+                )
+
+                # Predicted Container Diagnosis
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container Diagnosis"] + 1,
+                    value=resolve_container_field(container, "diagnosis"),
+                )
 
     match_pairs = [
         (
