@@ -208,11 +208,14 @@ def merge_predictions_into_validation_template(
         "Predicted Has Concurrent Malignancy Match",
         "GT Container Diagnosis",
         "Predicted Container Diagnosis",
+        "Predicted Container Dictionary Diagnosis",
         "Predicted Specimen",
         "Predicted Anatomic Location",
         "Predicted Container Diagnosis Code",
         "Predicted Code",
         "Predicted Dictionary Diagnosis",
+        "Prediction Score",
+        "Predicted Container Score",
     ]
 
     for header in required_headers:
@@ -276,6 +279,11 @@ def merge_predictions_into_validation_template(
                 column=header_indexes["Predicted Code"] + 1,
                 value=to_excel_value(record.get("valid_primary_diagnosis_code")),
             )
+            sheet.cell(
+                row=row_num,
+                column=header_indexes["Prediction Score"] + 1,
+                value=to_excel_value(record.get("valid_primary_diagnosis_score")),
+            )
 
             sheet.cell(
                 row=row_num,
@@ -315,6 +323,17 @@ def merge_predictions_into_validation_template(
                     column=header_indexes["Predicted Container Diagnosis Code"] + 1,
                     value=None,
                 )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Score"] + 1,
+                    value=None,
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Dictionary Diagnosis"]
+                    + 1,
+                    value=None,
+                )
             else:
                 sheet.cell(
                     row=row_num,
@@ -349,6 +368,17 @@ def merge_predictions_into_validation_template(
                     row=row_num,
                     column=header_indexes["Predicted Container Diagnosis Code"] + 1,
                     value=resolve_container_field(container, "valid_diagnosis_code"),
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Score"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_score"),
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Dictionary Diagnosis"]
+                    + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_name"),
                 )
 
             # Remaining unchanged fields
@@ -435,6 +465,21 @@ def merge_predictions_into_validation_template(
                     row=new_row,
                     column=header_indexes["Predicted Container Diagnosis Code"] + 1,
                     value=resolve_container_field(container, "valid_diagnosis_code"),
+                )
+
+                # Predicted Container Score
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container Score"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_score"),
+                )
+
+                # Predicted Container Dictionary Diagnosis
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container Dictionary Diagnosis"]
+                    + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_name"),
                 )
 
     # --- FIX Container Duplicate formulas after row insertions ---
