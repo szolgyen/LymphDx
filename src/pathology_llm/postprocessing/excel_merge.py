@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+from openpyxl.worksheet.table import Table
 
 from pathology_llm.postprocessing.predictions import (
     load_prediction_records,
@@ -187,7 +188,6 @@ def merge_predictions_into_validation_template(
         "Report",
         "GT Report Diagnosis",
         "Predicted Report Diagnosis",
-        "Predicted Report Diagnosis Match",
         "GT Container",
         "Predicted Container",
         "Predicted Container Match",
@@ -208,6 +208,11 @@ def merge_predictions_into_validation_template(
         "Predicted Has Concurrent Malignancy Match",
         "GT Container Diagnosis",
         "Predicted Container Diagnosis",
+        "Predicted Specimen",
+        "Predicted Anatomic Location",
+        "Predicted Container Diagnosis Code",
+        "Predicted Code",
+        "Predicted Dictionary Diagnosis",
     ]
 
     for header in required_headers:
@@ -265,6 +270,19 @@ def merge_predictions_into_validation_template(
                 value=to_excel_value(record.get("primary_diagnosis")),
             )
 
+            # New case-level fields
+            sheet.cell(
+                row=row_num,
+                column=header_indexes["Predicted Code"] + 1,
+                value=to_excel_value(record.get("valid_primary_diagnosis_code")),
+            )
+
+            sheet.cell(
+                row=row_num,
+                column=header_indexes["Predicted Dictionary Diagnosis"] + 1,
+                value=to_excel_value(record.get("valid_primary_diagnosis_name")),
+            )
+
             # --- Handle missing containers ---
             if container is None:
                 sheet.cell(
@@ -280,6 +298,21 @@ def merge_predictions_into_validation_template(
                 sheet.cell(
                     row=row_num,
                     column=header_indexes["Predicted Container Diagnosis"] + 1,
+                    value=None,
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Specimen"] + 1,
+                    value=None,
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Anatomic Location"] + 1,
+                    value=None,
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Diagnosis Code"] + 1,
                     value=None,
                 )
             else:
@@ -299,6 +332,23 @@ def merge_predictions_into_validation_template(
                     row=row_num,
                     column=header_indexes["Predicted Container Diagnosis"] + 1,
                     value=resolve_container_field(container, "diagnosis"),
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Specimen"] + 1,
+                    value=resolve_container_field(container, "specimen"),
+                )
+
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Anatomic Location"] + 1,
+                    value=resolve_container_field(container, "anatomic_location"),
+                )
+
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Diagnosis Code"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_code"),
                 )
 
             # Remaining unchanged fields
@@ -366,12 +416,55 @@ def merge_predictions_into_validation_template(
                     value=resolve_container_field(container, "diagnosis"),
                 )
 
+                # Predicted Specimen
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Specimen"] + 1,
+                    value=resolve_container_field(container, "specimen"),
+                )
+
+                # Predicted Anatomic Location
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Anatomic Location"] + 1,
+                    value=resolve_container_field(container, "anatomic_location"),
+                )
+
+                # Predicted Container Diagnosis Code
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container Diagnosis Code"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_code"),
+                )
+
+    # --- FIX Container Duplicate formulas after row insertions ---
+    container_dup_col = header_indexes.get("Container Duplicate")
+    id_col = header_indexes.get("Id")
+
+    if container_dup_col is not None and id_col is not None:
+        for row_idx in range(2, sheet.max_row + 1):
+            id_value = sheet.cell(
+                row=row_idx,
+                column=id_col + 1,
+            ).value
+
+            # Skip rows that do not contain real data
+            if id_value in (None, ""):
+                continue
+
+            sheet.cell(
+                row=row_idx,
+                column=container_dup_col + 1,
+                value=f"=COUNTIF($A$2:A{row_idx},A{row_idx})=1",
+            )
+
     match_pairs = [
         (
             "GT Report Diagnosis",
-            "Predicted Report Diagnosis",
-            "Predicted Report Diagnosis Match",
+            "Predicted Dictionary Diagnosis",
+            "Predicted Dictionary Diagnosis Match",
         ),
+        ("GT Code", "Predicted Code", "Predicted Code Match"),
         ("GT Container", "Predicted Container", "Predicted Container Match"),
         (
             "GT Has Differential Diagnosis",
@@ -418,6 +511,26 @@ def merge_predictions_into_validation_template(
             predicted_col_index=predicted_col_index,
             match_marker_col_index=match_marker_col_index,
         )
+
+    # Find last row with data
+    id_col = header_indexes["Id"] + 1
+
+    last_data_row = 1
+    for row_idx in range(sheet.max_row, 1, -1):
+        if sheet.cell(row=row_idx, column=id_col).value not in (None, ""):
+            last_data_row = row_idx
+            break
+
+    # Expand Excel table to actual data rows
+    for table in sheet.tables.values():
+        start_cell, end_cell = table.ref.split(":")
+
+        start_col = start_cell.rstrip("0123456789")
+        start_row = int(start_cell[len(start_col) :])
+
+        end_col = end_cell.rstrip("0123456789")
+
+        table.ref = f"{start_col}{start_row}:{end_col}{last_data_row}"
 
     output_excel.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_excel)
