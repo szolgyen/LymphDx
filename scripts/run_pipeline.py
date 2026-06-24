@@ -15,6 +15,7 @@ from pathology_llm.utils.utils import (
     prepare_output_store,
     write_output_record,
     write_prompt_record,
+    write_broken_extraction_record,
 )
 
 
@@ -102,7 +103,10 @@ def main() -> int:
             config["model"],
             config["decoder"],
         )
-        allowed_diagnoses = load_diagnosis_terms(config["diagnosis_terms_file"])
+        if config["decoder"] != "none":
+            allowed_diagnoses = load_diagnosis_terms(config["diagnosis_terms_file"])
+        else:
+            allowed_diagnoses = None
         reports = load_reports(config["input_file"])
         adapter = create_adapter(
             backend=config["backend"],
@@ -131,9 +135,20 @@ def main() -> int:
                 prompt=prompt,
             )
 
+        def _persist_broken_output(
+            report_index: int, raw_output: str | None, error_message: str
+        ) -> None:
+            write_broken_extraction_record(
+                output_dir=config["output_dir"],
+                report_index=report_index,
+                raw_output=raw_output,
+                error_message=error_message,
+            )
+
         extraction_outputs = pipeline.extract_reports(
             reports,
             on_success=_persist_output,
+            on_error=_persist_broken_output,
         )
         if reports and not extraction_outputs:
             raise RuntimeError(

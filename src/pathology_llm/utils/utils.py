@@ -67,6 +67,9 @@ def prepare_output_store(output_dir: str) -> None:
     jsonl_path = out_path / "predictions.jsonl"
     jsonl_path.write_text("", encoding="utf-8")
 
+    broken_jsonl_path = out_path / "predictions_broken.jsonl"
+    broken_jsonl_path.write_text("", encoding="utf-8")
+
 
 def write_output_record(output_dir: str, report_index: int, output: dict) -> None:
     out_path = Path(output_dir)
@@ -88,3 +91,20 @@ def write_prompt_record(output_dir: str, report_index: int, prompt: str) -> None
         prompt,
         encoding="utf-8",
     )
+
+
+def write_broken_extraction_record(
+    output_dir: str, report_index: int, raw_output: str | None, error_message: str
+) -> None:
+    """Write broken/unparseable extraction to a separate file for debugging."""
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    broken_record = {
+        "report_index": report_index,
+        "error": error_message,
+        "raw_output": raw_output,
+    }
+
+    with (out_path / "predictions_broken.jsonl").open("a", encoding="utf-8") as f:
+        f.write(json.dumps(broken_record) + "\n")

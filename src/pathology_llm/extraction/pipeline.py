@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from pathology_llm.inference.adapters.base import BaseModelAdapter
 from pathology_llm.preprocessing.data_parsing import ParsedReport
 from pathology_llm.prompting.prompt_builder import build_extraction_prompt_from_template
+from pathology_llm.schemas.validation import SchemaValidationError
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ class ExtractionPipeline:
         self,
         reports: list[ParsedReport],
         on_success: Callable[[int, BaseModel, str], None] | None = None,
+        on_error: Callable[[int, str | None, str], None] | None = None,
     ) -> list[BaseModel]:
         logger.info("Extracting structured outputs for %d reports", len(reports))
         outputs: list[BaseModel] = []
@@ -44,11 +46,25 @@ class ExtractionPipeline:
                     include_diagnosis_constraints=self.include_diagnosis_constraints,
                 )
                 logger.debug("Running extraction for report_index=%d", idx)
-                extraction = self.adapter.extract(prompt)
-                extraction.case_id = report.case_id
-                outputs.append(extraction)
-                if on_success is not None:
-                    on_success(idx, extraction, prompt)
+                # Separate generate and parse to capture raw output on error
+                raw = self.adapter.generate(prompt)
+                try:
+                    extraction = self.adapter.parse(raw)
+                    extraction.case_id = report.case_id
+                    outputs.append(extraction)
+                    if on_success is not None:
+                        on_success(idx, extraction, prompt)
+                except SchemaValidationError as parse_error:
+                    # Schema parse error: capture raw output for debugging
+                    if on_error is not None:
+                        on_error(idx, raw, str(parse_error))
+                    logger.error(
+                        "Failed to parse output for report_index=%d: %s",
+                        idx,
+                        str(parse_error),
+                        exc_info=True,
+                    )
+                    errors[idx] = str(parse_error)
             except Exception as e:
                 logger.error(
                     "Failed to extract report_index=%d: %s",
