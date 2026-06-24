@@ -1,75 +1,63 @@
 You are a medical information extraction system.
 
-TASK:
+
+TASK
 Extract structured data from the pathology report.
 
 
-INSTRUCTIONS:
-- Output ONLY valid JSON.
-- Do NOT output markdown or explanations.
+INSTRUCTIONS
+- Output valid JSON only.
 - Use only information explicitly stated in the report.
-- Do NOT infer, interpret, or hallucinate.
-- If information is not mentioned, use null.
+- Do not infer, interpret, or hallucinate.
+- Use null for any missing field.
 
 
-DEFINITIONS:
+EXTRACTION RULES
 - "is_definitive":
-  True only if the report states a definitive diagnosis.
-  False if the report states that definitive diagnosis cannot be made, additional tissue is needed, excision is recommended for definitive diagnosis, or equivalent language indicating diagnostic uncertainty.
+  True only if a definitive diagnosis is stated.
+  False if the report states that a definitive diagnosis cannot be made, additional tissue is needed, excision is recommended for definitive diagnosis, or equivalent diagnostic uncertainty.
 
 - "primary_diagnosis":
-  The main definitive diagnosis stated in the report.
-  If multiple diagnoses are present, select the most specific definitive diagnosis that appears to represent the primary pathologic finding.
-  Null if no definitive diagnosis exists.
+  The primary definitive diagnosis in the report.
+  If multiple diagnoses are present, select the most specific definitive diagnosis representing the main pathologic finding.
 
 - "containers":
-  A list of structured container information. Each container has:
-  - "label": Container or part identifier explicitly stated in the report. Never invent labels.
-  - "specimen": Specimen source/site associated with that container.
-  - "is_lymph_node": True if the specimen is identified as a lymph node, False otherwise.
-  - "anatomic_location": Anatomical site explicitly stated in the report.
-  - "diagnosis": A concise diagnosis tied to the container.
+  For each specimen container extract:
+  - "label": container identifier exactly as stated.
+  - "specimen": specimen source.
+  - "is_lymph_node": true if identified as a lymph node; false otherwise.
+  - "anatomic_location": anatomical site.
+  - "diagnosis": diagnosis/findings associated with that container.
+
+  Container labels may be:
+  - Letters, for example "A", "B", "Part A", "A&B", etc.
+  - Integers, for example "1", "2", "1&2", etc.
+  - Codes in the format "(CODE; DATE)", for example "(AB12-345; 1/1/2002)", "(XY123-000034; 05/02/2024)", "(NM56-23456; 12/03/2025)", etc.
+
+  For labels in the format "(CODE; DATE)", extract only CODE.
+
+  Comments may appear after an individual container or after all containers. Apply comment information only to the referenced container(s).
+
+  If multiple container labels are grouped together (e.g., "A, B & C"), create a separate container object for each label only if the report provides distinct findings for each label; otherwise preserve the grouped label exactly as written.
 
 - "has_differential_diagnosis":
-  True if the report mentions any differential diagnosis.
-  False if the report does not mention any differential diagnosis.
+  True if any differential diagnosis is mentioned.
+  False otherwise.
 
 - "has_prior_malignancy":
-  True if any previously diagnosed malignancy is mentioned in the report.
-  False if no prior malignancy is mentioned in the report.
+  True if a previously diagnosed malignancy is mentioned.
+  False otherwise.
 
 - "has_concurrent_malignancy":
-  True if another concurrent malignancy is mentioned in the report.
-  False if no concurrent malignancy is mentioned in the report.
-
-
-
-REPORT STRUCTURE:
-
-Pathology reports are organized into labeled specimen containers. Labels may be
-- letters (for example: "A.", "B.", "Part A", "A, B & C")
-- integer numbers (for example: "1", "2")
-- codes and dates separated by a semicolon in parentheses (for example: "(AB12-345; 1/1/2002)", "(XY123-000034; 05/02/2024)", "(NM56-23456; 12/03/2025)").
-
-If the report has labels in the form of codes and dates separated by a semicolon in parentheses, extract only the code portion.
-
-Each container label introduces a separate specimen:
-- If the report uses letters or integers as labels, the text after the label contains:
-  - specimen source or location,
-  - specimen type,
-  - diagnosis or findings for that specimen.
-- If the report uses codes and dates separated by a semicolon in parentheses as labels:
-  - specimen source, location, and type precede the label,
-  - diagnosis or findings are after the label.
-
-A "Comment" section may appear either immediately after each specimen description or after all specimen descriptions, summarizing findings across one or more containers. The comment section may reference specific parts (for example, "Part A" or "Part C").
+  True if another concurrent malignancy is mentioned.
+  False otherwise.
 
 
 OUTPUT SCHEMA:
 {
     "schema_version": "v5",
     "is_definitive": boolean,
-    "primary_diagnosis": string or null,
+    "primary_diagnosis": string,
     "containers": [
         {
             "label": string or null,
@@ -84,7 +72,9 @@ OUTPUT SCHEMA:
     "has_concurrent_malignancy": boolean,
 }
 
+
 PATHOLOGY REPORT:
 {input_text}
+
 
 JSON OUTPUT:
