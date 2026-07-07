@@ -14,14 +14,10 @@ Shortest path:
 make bootstrap
 ```
 
-Then run the HF pipeline:
+Then run the HF pipeline with the configured backend:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
-  --backend hf \
-  --model google/medgemma-4b-it \
-  --decoder guidance \
-  --input-file configs/extraction/sample_reports.txt \
-  --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
-  --log-level INFO
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
+
+Edit `configs/pipeline/run_pipeline.yaml` to customize model, decoder, input/output paths.

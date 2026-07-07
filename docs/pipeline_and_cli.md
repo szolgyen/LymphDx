@@ -1,31 +1,39 @@
 # Pipeline and CLI Flow
 
+## Configuration
+
+Execution is configured via YAML files in `configs/pipeline/`.
+
+Default config: `configs/pipeline/run_pipeline.yaml`
+
+Main configuration keys:
+
+- `backend`: `hf | vllm | sglang | ollama` (required)
+- `model`: model identifier for selected backend (required)
+- `decoder`: `none | guidance | outlines` (required)
+- `schema`: schema version (e.g., `v5`)
+- `input_file`: reports file (.txt one-per-line or .xlsx)
+- `diagnosis_terms_file`: allowed diagnosis terms file
+- `output_dir`: JSON output directory
+- `log_level`: `DEBUG | INFO | WARNING | ERROR | CRITICAL`
+
 ## CLI Entrypoint
 
-`scripts/run_pipeline.py` controls execution.
+`scripts/run_pipeline.py` loads config from a YAML file.
 
-Main arguments:
-
-- `--backend`: `dummy | hf | vllm | sglang | ollama`
-- `--model`: model identifier for selected backend
-- `--decoder`: `auto | none | sglang | guidance | outlines`
-- `--input-file`: reports text file (one report per line)
-- `--prompt-template`: prompt template path
-- `--diagnosis-terms-file`: allowed diagnosis terms
-- `--output-dir`: JSON output directory
-- `--log-level`: `DEBUG | INFO | WARNING | ERROR | CRITICAL`
-
-Run the pipeline with the backend-specific interpreter path under `.venvs/`.
-
-The recommended setup is to bootstrap backend-specific environments using `make bootstrap`.
-
-See [installation.md](installation.md) for first-time setup.
-
-Example:
+Run the pipeline:
 
 ```sh
-.venvs/report-llm-hf/bin/python scripts/run_pipeline.py --backend hf --model ... --input-file ...
+.venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
+
+Optional override (uses YAML default for unspecified options):
+
+```sh
+.venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml --log-level DEBUG
+```
+
+See [installation.md](installation.md) for first-time setup.
 
 Note:
 
@@ -52,6 +60,7 @@ Note:
 
 ## Output Artifacts
 
-- Per-case JSON files under `outputs/predictions/`
-- Aggregate `predictions.jsonl`
-- Execution logs under `outputs/logs/`
+- Timestamped output directory: `outputs/predictions/YYYYMMDD_HHMMSS/`
+- Timestamped predictions: `predictions_YYYYMMDD_HHMMSS.jsonl`
+- Broken extraction records: `predictions_broken_YYYYMMDD_HHMMSS.jsonl`
+- Execution logs: `outputs/logs/run_pipeline_YYYYMMDD_HHMMSS.log`

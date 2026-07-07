@@ -2,11 +2,10 @@
 
 ## Adapter Layer
 
-Location: `src/pathology_llm/inference/adapters/`
+Location: `src/inference/adapters/`
 
 Implemented:
 
-- `dummy.py`: deterministic mock output for integration/testing.
 - `hf.py`: HuggingFace runtime adapter with lazy model loading and parse validation.
 
 Placeholders:
@@ -21,7 +20,7 @@ Factory:
 
 ## Decoder Layer
 
-Location: `src/pathology_llm/inference/decoders/`
+Location: `src/inference/decoders/`
 
 Implemented:
 
@@ -38,7 +37,9 @@ Factory:
 
 - `factory.py` dispatches to the appropriate decoder object.
 
-## Current HF Decoder Modes
+## Decoder Modes
+
+All backends support:
 
 ### `decoder=none`
 
@@ -47,9 +48,15 @@ Factory:
 
 ### `decoder=guidance`
 
-- Uses Guidance constrained generation path.
+- Uses Guidance constrained generation path (HF backend).
 - Builds a strict JSON schema including diagnosis enum constraints.
 - Enforces non-empty allowed diagnosis terms.
+
+### `decoder=outlines`
+
+- Uses Outlines constrained decoding path.
+- Strict schema-constrained generation.
+- Supports HF and vLLM backends.
 
 ## Validation Contract
 

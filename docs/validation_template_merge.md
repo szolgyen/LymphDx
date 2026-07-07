@@ -12,7 +12,7 @@ The validation template merge process takes prediction data from a JSONL file (g
 
 ## Template Structure
 
-The validation template (`outputs/excel/NM_Surgical_Path_LN_validation_template.xlsx`) has a Results sheet with 27 columns:
+The validation template has a Results sheet with 27 columns:
 
 1. **Id** - Case ID from JSONL
 2. **Container Duplicate** - Boolean: False for first container per case, True for subsequent containers
@@ -40,7 +40,6 @@ The validation template (`outputs/excel/NM_Surgical_Path_LN_validation_template.
 24. **Predicted Has Concurrent Malignancy Match** - Helper column
 25. **GT Container Diagnosis** - Empty
 26. **Predicted Container Diagnosis** - From container `diagnosis` field
-27. (Reserved)
 
 ## Usage
 
@@ -59,25 +58,6 @@ python scripts/merge_predictions_validation_template.py \
   --output-excel <path_to_output.xlsx>
 ```
 
-### Default Paths
-
-- **Template**: `outputs/excel/NM_Surgical_Path_LN_validation_template.xlsx`
-- **Predictions JSONL**: `outputs/predictions/guidance/predictions.jsonl`
-- **Output**: `outputs/excel/NM_Surgical_Path_LN_validation_filled.xlsx`
-
-### Python API
-
-```python
-from pathlib import Path
-from pathology_llm.postprocessing.excel_merge_validation_template import \
-    merge_predictions_into_validation_template
-
-merge_predictions_into_validation_template(
-    template_excel=Path("outputs/excel/NM_Surgical_Path_LN_validation_template.xlsx"),
-    predictions_jsonl=Path("outputs/predictions/guidance/predictions.jsonl"),
-    output_excel=Path("outputs/excel/NM_Surgical_Path_LN_validation_filled.xlsx"),
-)
-```
 
 ## Data Mapping
 
@@ -109,65 +89,3 @@ When GT columns are populated with validation data:
 1. Cell highlighting (light green `#C6EFCE`) is applied to Predicted cells where the value matches the corresponding GT cell (case-insensitive string comparison)
 2. Match helper columns are populated with "literal_match" string where highlighting is applied
 3. This allows quick visual scanning of correct vs incorrect predictions
-
-Currently, since the template is initially empty (no GT data), no highlighting is applied until GT columns are populated externally.
-
-## Implementation Files
-
-- **Merge Module**: `src/pathology_llm/postprocessing/excel_merge_validation_template.py`
-- **CLI Module**: `src/pathology_llm/postprocessing/cli_validation_template.py`
-- **CLI Script**: `scripts/merge_predictions_validation_template.py`
-
-## Key Functions
-
-### `merge_predictions_into_validation_template(template_excel, predictions_jsonl, output_excel)`
-
-Main entry point that:
-1. Loads the JSONL prediction data
-2. Reads the template Excel file
-3. Generates one row per container from JSONL data
-4. Populates all Predicted* columns
-5. Applies match highlighting based on GT vs Predicted comparison
-6. Saves the output Excel file
-
-### Helper Functions
-
-- **`normalize_containers(value)`** - Normalizes container data to list format
-- **`resolve_container_label(container)`** - Extracts container label
-- **`resolve_container_field(container, field)`** - Extracts specific container field
-- **`select_container_for_row(record, excel_container_value)`** - Finds matching container for a row
-- **`apply_match_highlighting_and_marker(sheet, gt_col, pred_col, match_col)`** - Applies green highlighting and "literal_match" marker to matching cells
-- **`normalize_value_for_match(value)`** - Normalizes values for comparison (case-insensitive, handles booleans)
-
-## Performance Notes
-
-- The merge typically completes in a few seconds for ~200-300 predictions
-- Output file size is ~70K for 522 data rows (314 unique cases)
-- All operations are in-memory; no temporary files are created
-
-## Troubleshooting
-
-### No data in output file
-
-Check that:
-1. JSONL file exists and contains valid records
-2. JSONL records have required fields: `case_id`, `containers` array
-3. Template file is in the correct format with proper column headers
-
-### Match highlighting not appearing
-
-This is expected if GT columns are empty. Highlighting only appears when GT data is populated and the cell value matches the Predicted value.
-
-### Incorrect Container Duplicate values
-
-Container Duplicate should be False for the first container of each case, True for subsequent ones. If all are False, verify that:
-1. JSONL records have multiple containers in the `containers` array
-2. The merge function iterated correctly through all containers
-
-## Future Enhancements
-
-- Support custom column mapping via configuration
-- Add column reordering options
-- Export to other formats (CSV, JSON)
-- Batch processing of multiple JSONL files
-- Configurable highlighting colors and match strings

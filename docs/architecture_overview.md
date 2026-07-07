@@ -10,33 +10,33 @@ The framework is organized by processing responsibilities:
 
 - `scripts/`
   - Entrypoints and execution scripts.
-- `src/pathology_llm/extraction/`
+- `src/extraction/`
   - Pipeline orchestration over report batches.
-- `src/pathology_llm/inference/adapters/`
-  - Backend runtime integration (HF, dummy, placeholders).
-- `src/pathology_llm/inference/decoders/`
+- `src/inference/adapters/`
+  - Backend runtime integration (HF, placeholders).
+- `src/inference/decoders/`
   - Decoding strategies (`none`, `guidance`, `outlines`, placeholders).
-- `src/pathology_llm/prompting/`
+- `src/prompting/`
   - Prompt template construction and diagnosis constraints injection.
-- `src/pathology_llm/schemas/`
+- `src/schemas/`
   - Structured schema and strict output validation.
-- `src/pathology_llm/utils/`
+- `src/utils/`
   - Logging and file I/O utilities.
 
 ## Core Principles
 
 - Strict schema-first extraction.
-- Diagnosis constraints are enforced, not mapped post hoc.
+- Diagnosis constraints are enforced via constrained decoding, not mapped post hoc.
 - Adapter runtime concerns are separated from decoder strategy concerns.
 - Placeholder scaffolding is explicit for unimplemented backends/decoders (currently `vllm`, `sglang`, `ollama` adapters and `sglang` decoder).
 
 ## Parallel Inference Structure
 
-Inference now follows a parallel package layout:
+Inference follows a parallel package layout:
 
-- `src/pathology_llm/inference/adapters/`
-  - `base.py`, `factory.py`, concrete adapters.
-- `src/pathology_llm/inference/decoders/`
-  - `base.py`, `factory.py`, concrete/placeholder decoders.
+- `src/inference/adapters/`
+  - `base.py`, `factory.py`, concrete adapters (hf, vllm, sglang, ollama).
+- `src/inference/decoders/`
+  - `base.py`, `factory.py`, concrete/placeholder decoders (none, guidance, outlines, sglang).
 
 This keeps runtime backend logic and decoding policy cleanly separated.

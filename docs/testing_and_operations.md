@@ -1,54 +1,37 @@
-# Testing and Operations
-
-## Test Suite
-
-Run all tests:
-
-```bash
-uv run python -m pytest -q
-```
-
-Current coverage includes:
-
-- Schema validation behavior.
-- HF adapter parsing and decoder behavior.
-- Decoder factory routing across implemented and placeholder decoders.
+# Operations
 
 ## Common Runtime Commands
 
-Dummy backend:
+Edit `configs/pipeline/run_pipeline.yaml` to set backend, model, decoder, and file paths.
+
+Then run:
 
 ```bash
-uv run python scripts/run_pipeline.py \
-  --backend dummy \
-  --decoder none \
-  --input-file configs/extraction/sample_reports.txt \
-  --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
-  --log-level INFO
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
 
-HF + Guidance:
+Example configurations:
 
-```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
-  --backend hf \
-  --model google/medgemma-4b-it \
-  --decoder guidance \
-  --input-file configs/extraction/sample_reports.txt \
-  --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
-  --log-level INFO
+**HF + Guidance:**
+
+```yaml
+backend: hf
+model: google/medgemma-4b-it
+decoder: guidance
+input_file: configs/extraction/sample_reports.txt
+diagnosis_terms_file: configs/extraction/diagnosis_terms_v1.txt
+log_level: INFO
 ```
 
-HF + Outlines (single GPU):
+**HF + Outlines:**
 
-```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
-  --backend hf \
-  --model google/medgemma-4b-it \
-  --decoder outlines \
-  --input-file configs/extraction/sample_reports.txt \
-  --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
-  --log-level INFO
+```yaml
+backend: hf
+model: google/medgemma-4b-it
+decoder: outlines
+input_file: configs/extraction/sample_reports.txt
+diagnosis_terms_file: configs/extraction/diagnosis_terms_v1.txt
+log_level: INFO
 ```
 
 ## Observed HF Model/Decoder Matrix

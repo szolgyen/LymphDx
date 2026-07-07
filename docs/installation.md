@@ -5,7 +5,7 @@ This guide is for a fresh clone of ReportLLM.
 ## Prerequisites
 
 - Linux/macOS shell
-- Python 3.11
+- Python 3.12 or later
 - `uv` installed and available on PATH
 
 If `uv` is missing, install it first:
@@ -45,13 +45,7 @@ Expected environments:
 ## 3) Run a quick HF pipeline smoke test
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
-  --backend hf \
-  --model google/medgemma-4b-it \
-  --decoder guidance \
-  --input-file configs/extraction/sample_reports.txt \
-  --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
-  --log-level INFO
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
 
 ## Useful Make Targets

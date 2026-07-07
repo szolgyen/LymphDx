@@ -17,16 +17,10 @@ This folder contains structured documentation for the current framework.
 
 ## Fast Start
 
-Run the current HF guidance path:
+Edit `configs/pipeline/run_pipeline.yaml` with your settings, then run:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py \
-  --backend hf \
-  --model google/medgemma-4b-it \
-  --decoder guidance \
-  --input-file configs/extraction/sample_reports.txt \
-  --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt \
-  --log-level INFO
+CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
 
 Core outputs:
@@ -42,7 +36,8 @@ Core outputs:
   - `decoder=guidance` (strict schema-guided generation path)
   - `decoder=outlines` (strict constrained decoding path)
 - Decoder status:
-  - `outlines` is implemented.
-  - `sglang` remains a placeholder.
+  - `none`, `guidance`, and `outlines` are implemented.
+  - `sglang` decoder remains a placeholder.
 - Backend status:
+  - `hf` is fully implemented.
   - `vllm`, `sglang`, and `ollama` adapters are placeholders in the current codebase.
