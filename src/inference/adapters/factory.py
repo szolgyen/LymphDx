@@ -65,7 +65,9 @@ def create_adapter(
     )
 
     if backend_name == "dummy":
-        return DummyAdapter(allowed_diagnoses=allowed_diagnoses)
+        return DummyAdapter(
+            allowed_diagnoses=allowed_diagnoses, schema_model=schema_model
+        )
 
     if backend_name == "hf":
         return HFAdapter(
@@ -80,6 +82,7 @@ def create_adapter(
             model=model,
             decoder=resolved_decoder,
             allowed_diagnoses=allowed_diagnoses,
+            schema_model=schema_model,
         )
 
     if backend_name == "sglang":
@@ -87,6 +90,7 @@ def create_adapter(
             model=model,
             decoder=resolved_decoder,
             allowed_diagnoses=allowed_diagnoses,
+            schema_model=schema_model,
         )
 
     if backend_name == "ollama":
@@ -94,6 +98,7 @@ def create_adapter(
             model=model,
             decoder=resolved_decoder,
             allowed_diagnoses=allowed_diagnoses,
+            schema_model=schema_model,
         )
 
     # Defensive fallback; should be unreachable due to SUPPORTED_BACKENDS validation.

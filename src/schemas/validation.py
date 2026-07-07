@@ -5,8 +5,6 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic import ValidationError
 
-from schemas.pathology import PathologyExtractionV2
-
 
 class SchemaValidationError(Exception):
     pass
@@ -76,7 +74,17 @@ def _enforce_diagnosis_constraints(
         )
 
 
-def _normalize_differential_consistency(extraction: PathologyExtractionV2) -> None:
+def _normalize_differential_consistency(extraction: BaseModel) -> None:
+    """Normalize differential diagnoses.
+
+    Checks for presence of required attributes via duck-typing.
+    """
+    if not (
+        hasattr(extraction, "primary_diagnosis")
+        and hasattr(extraction, "differential_diagnoses")
+    ):
+        return
+
     # Keep only non-empty differential entries and remove any duplicate of primary diagnosis.
     primary = extraction.primary_diagnosis
     deduped: list[str] = []
@@ -97,52 +105,8 @@ def _normalize_differential_consistency(extraction: PathologyExtractionV2) -> No
 
 
 def _normalize_if_supported(extraction: BaseModel) -> None:
-    if not isinstance(extraction, PathologyExtractionV2):
-        return
+    """Apply normalization for schemas that support it."""
     _normalize_differential_consistency(extraction)
-
-
-def validate_pathology_output(
-    raw: str | dict,
-    allowed_diagnoses: set[str] | None = None,
-) -> PathologyExtractionV2:
-    """
-    Validates model output against PathologyExtractionV2 schema.
-
-    Input:
-        raw: JSON string or dict from LLM
-        allowed_diagnoses: optional constrained set for primary/secondary diagnosis terms
-
-    Output:
-        PathologyExtractionV2 (validated)
-
-    Raises:
-        SchemaValidationError if invalid
-    """
-
-    try:
-        # normalize input
-        if isinstance(raw, str):
-            data = json.loads(raw)
-        else:
-            data = raw
-
-        # validate via Pydantic
-        extraction = PathologyExtractionV2.model_validate(data)
-
-        _normalize_if_supported(extraction)
-
-        # strict constrained decoding contract: no ontology mapping fallback
-        if allowed_diagnoses is not None:
-            _enforce_diagnosis_constraints(extraction, allowed_diagnoses)
-
-        return extraction
-
-    except json.JSONDecodeError as e:
-        raise SchemaValidationError(f"Invalid JSON: {e}")
-
-    except ValidationError as e:
-        raise SchemaValidationError(f"Schema mismatch: {e}")
 
 
 def validate_output(

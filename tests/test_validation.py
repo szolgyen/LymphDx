@@ -1,15 +1,16 @@
 import pytest
 from pydantic import BaseModel, Field
 
+from schemas.registry import get_schema_model
 from schemas.validation import (
     DiagnosisConstraintError,
     SchemaValidationError,
     validate_output,
-    validate_pathology_output,
 )
 
 
 def test_validation_accepts_allowed_diagnosis_terms() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v2",
         "primary_diagnosis": "Adenocarcinoma",
@@ -26,13 +27,14 @@ def test_validation_accepts_allowed_diagnosis_terms() -> None:
     }
     allowed = {"Adenocarcinoma", "Reactive lymphoid hyperplasia"}
 
-    obj = validate_pathology_output(raw, allowed_diagnoses=allowed)
+    obj = validate_output(raw, schema_model=schema_v2, allowed_diagnoses=allowed)
 
     assert obj.primary_diagnosis == "Adenocarcinoma"
     assert obj.differential_diagnoses == ["Reactive lymphoid hyperplasia"]
 
 
 def test_validation_rejects_disallowed_primary_diagnosis() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v2",
         "primary_diagnosis": "Invasive component",
@@ -42,10 +44,11 @@ def test_validation_rejects_disallowed_primary_diagnosis() -> None:
     allowed = {"Adenocarcinoma", "Reactive lymphoid hyperplasia"}
 
     with pytest.raises(DiagnosisConstraintError):
-        validate_pathology_output(raw, allowed_diagnoses=allowed)
+        validate_output(raw, schema_model=schema_v2, allowed_diagnoses=allowed)
 
 
 def test_validation_rejects_disallowed_differential_diagnosis() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v2",
         "primary_diagnosis": "Adenocarcinoma",
@@ -55,10 +58,11 @@ def test_validation_rejects_disallowed_differential_diagnosis() -> None:
     allowed = {"Adenocarcinoma", "Reactive lymphoid hyperplasia"}
 
     with pytest.raises(DiagnosisConstraintError):
-        validate_pathology_output(raw, allowed_diagnoses=allowed)
+        validate_output(raw, schema_model=schema_v2, allowed_diagnoses=allowed)
 
 
 def test_validation_rejects_primary_inside_differentials() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v2",
         "primary_diagnosis": "Adenocarcinoma",
@@ -66,13 +70,14 @@ def test_validation_rejects_primary_inside_differentials() -> None:
         "differential_diagnoses": ["Adenocarcinoma"],
     }
 
-    obj = validate_pathology_output(raw)
+    obj = validate_output(raw, schema_model=schema_v2)
 
     assert obj.differential_diagnoses == []
     assert obj.has_differential_diagnosis is False
 
 
 def test_validation_rejects_false_flag_with_non_empty_differentials() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v2",
         "primary_diagnosis": "Adenocarcinoma",
@@ -80,13 +85,14 @@ def test_validation_rejects_false_flag_with_non_empty_differentials() -> None:
         "differential_diagnoses": ["Reactive lymphoid hyperplasia"],
     }
 
-    obj = validate_pathology_output(raw)
+    obj = validate_output(raw, schema_model=schema_v2)
 
     assert obj.differential_diagnoses == ["Reactive lymphoid hyperplasia"]
     assert obj.has_differential_diagnosis is True
 
 
 def test_validation_rejects_true_flag_with_empty_differentials() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v2",
         "primary_diagnosis": "Adenocarcinoma",
@@ -94,13 +100,14 @@ def test_validation_rejects_true_flag_with_empty_differentials() -> None:
         "differential_diagnoses": [],
     }
 
-    obj = validate_pathology_output(raw)
+    obj = validate_output(raw, schema_model=schema_v2)
 
     assert obj.differential_diagnoses == []
     assert obj.has_differential_diagnosis is False
 
 
 def test_validation_rejects_null_flag_with_non_empty_differentials() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v2",
         "primary_diagnosis": "Adenocarcinoma",
@@ -108,13 +115,14 @@ def test_validation_rejects_null_flag_with_non_empty_differentials() -> None:
         "differential_diagnoses": ["Reactive lymphoid hyperplasia"],
     }
 
-    obj = validate_pathology_output(raw)
+    obj = validate_output(raw, schema_model=schema_v2)
 
     assert obj.differential_diagnoses == ["Reactive lymphoid hyperplasia"]
     assert obj.has_differential_diagnosis is True
 
 
 def test_validation_rejects_unsupported_schema_version() -> None:
+    schema_v2 = get_schema_model("v2")
     raw = {
         "schema_version": "v1",
         "primary_diagnosis": "Adenocarcinoma",
@@ -123,7 +131,7 @@ def test_validation_rejects_unsupported_schema_version() -> None:
     }
 
     with pytest.raises(SchemaValidationError, match="Schema mismatch"):
-        validate_pathology_output(raw)
+        validate_output(raw, schema_model=schema_v2)
 
 
 def test_validate_output_applies_constraints_for_v3_primary_diagnosis() -> None:

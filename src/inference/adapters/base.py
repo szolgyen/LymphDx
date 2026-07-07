@@ -4,8 +4,15 @@ from pydantic import BaseModel
 
 
 class BaseModelAdapter(ABC):
-    def __init__(self, allowed_diagnoses: Optional[set[str]] = None):
+    def __init__(
+        self,
+        allowed_diagnoses: Optional[set[str]] = None,
+        schema_model: Optional[type[BaseModel]] = None,
+    ):
+        if schema_model is None:
+            raise ValueError("schema_model is required")
         self.allowed_diagnoses = allowed_diagnoses
+        self.schema_model = schema_model
 
     @abstractmethod
     def generate(self, prompt: str) -> str:

@@ -1,9 +1,16 @@
 from inference.adapters.base import BaseModelAdapter
-from schemas.validation import validate_pathology_output
+from schemas.validation import validate_output
 
 
 class DummyAdapter(BaseModelAdapter):
     """Dummy adapter for testing pipeline without real model inference."""
+
+    def __init__(
+        self,
+        allowed_diagnoses=None,
+        schema_model=None,
+    ):
+        super().__init__(allowed_diagnoses=allowed_diagnoses, schema_model=schema_model)
 
     def generate(self, prompt: str) -> str:
         # Simulated LLM output (intentionally imperfect realism)
@@ -30,4 +37,8 @@ class DummyAdapter(BaseModelAdapter):
         """
 
     def parse(self, raw: str):
-        return validate_pathology_output(raw, allowed_diagnoses=self.allowed_diagnoses)
+        return validate_output(
+            raw,
+            schema_model=self.schema_model,
+            allowed_diagnoses=self.allowed_diagnoses,
+        )

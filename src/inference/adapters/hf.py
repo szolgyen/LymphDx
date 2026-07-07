@@ -32,7 +32,7 @@ class HFAdapter(BaseModelAdapter):
         temperature: float = 0.0,
         device_map: str = "auto",
     ):
-        super().__init__(allowed_diagnoses=allowed_diagnoses)
+        super().__init__(allowed_diagnoses=allowed_diagnoses, schema_model=schema_model)
         decoder_name = decoder.strip().lower()
         if decoder_name not in self.supported_decoders:
             raise ValueError(
@@ -45,7 +45,6 @@ class HFAdapter(BaseModelAdapter):
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self.device_map = device_map
-        self.schema_model = schema_model
         self._decoder: BaseDecoder = create_decoder(
             backend=self.backend_name,
             decoder_name=decoder_name,
