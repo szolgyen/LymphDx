@@ -2,6 +2,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 from openpyxl.worksheet.table import Table
+import yaml
 
 from postprocessing.predictions import (
     load_prediction_records,
@@ -67,6 +68,42 @@ def resolve_container_label(container: dict[str, Any] | None) -> Any:
 def resolve_container_field(container: dict[str, Any] | None, field: str) -> Any:
     if not container:
         return None
+    return to_excel_value(container.get(field))
+
+
+def extract_primary_diagnosis_field(record: dict[str, Any], field: str) -> Any:
+    """Extract primary diagnosis field from nested or flat structure.
+
+    Handles new nested structure: valid_primary_diagnoses -> top_1 -> field
+    Falls back to old flat structure: field (for backward compatibility)
+    """
+    if "valid_primary_diagnoses" in record and isinstance(
+        record["valid_primary_diagnoses"], dict
+    ):
+        top_1 = record["valid_primary_diagnoses"].get("top_1")
+        if top_1 and isinstance(top_1, dict):
+            return to_excel_value(top_1.get(field))
+    # Fallback to flat structure
+    return to_excel_value(record.get(field))
+
+
+def extract_container_diagnosis_field(
+    container: dict[str, Any] | None, field: str
+) -> Any:
+    """Extract container diagnosis field from nested or flat structure.
+
+    Handles new nested structure: valid_diagnoses -> top_1 -> field
+    Falls back to old flat structure: field (for backward compatibility)
+    """
+    if not container:
+        return None
+    if "valid_diagnoses" in container and isinstance(
+        container["valid_diagnoses"], dict
+    ):
+        top_1 = container["valid_diagnoses"].get("top_1")
+        if top_1 and isinstance(top_1, dict):
+            return to_excel_value(top_1.get(field))
+    # Fallback to flat structure
     return to_excel_value(container.get(field))
 
 
@@ -277,35 +314,47 @@ def merge_predictions_into_validation_template(
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Predicted Code"] + 1,
-                value=to_excel_value(record.get("valid_primary_diagnosis_code")),
+                value=extract_primary_diagnosis_field(
+                    record, "valid_primary_diagnosis_code"
+                ),
             )
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Prediction Score"] + 1,
-                value=to_excel_value(record.get("valid_primary_diagnosis_score")),
+                value=extract_primary_diagnosis_field(
+                    record, "valid_primary_diagnosis_score"
+                ),
             )
 
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Predicted Dictionary Diagnosis"] + 1,
-                value=to_excel_value(record.get("valid_primary_diagnosis_name")),
+                value=extract_primary_diagnosis_field(
+                    record, "valid_primary_diagnosis_name"
+                ),
             )
 
             # New primary diagnosis group fields
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Predicted Diagnosis Group 1"] + 1,
-                value=to_excel_value(record.get("valid_primary_diagnosis_group_1")),
+                value=extract_primary_diagnosis_field(
+                    record, "valid_primary_diagnosis_group_1"
+                ),
             )
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Predicted Diagnosis Group 2"] + 1,
-                value=to_excel_value(record.get("valid_primary_diagnosis_group_2")),
+                value=extract_primary_diagnosis_field(
+                    record, "valid_primary_diagnosis_group_2"
+                ),
             )
             sheet.cell(
                 row=row_num,
                 column=header_indexes["Predicted Diagnosis Group 3"] + 1,
-                value=to_excel_value(record.get("valid_primary_diagnosis_group_3")),
+                value=extract_primary_diagnosis_field(
+                    record, "valid_primary_diagnosis_group_3"
+                ),
             )
 
             # --- Handle missing containers ---
@@ -384,35 +433,47 @@ def merge_predictions_into_validation_template(
                 sheet.cell(
                     row=row_num,
                     column=header_indexes["Predicted Container Diagnosis Code"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_code"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_code"
+                    ),
                 )
                 sheet.cell(
                     row=row_num,
                     column=header_indexes["Predicted Container Score"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_score"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_score"
+                    ),
                 )
                 sheet.cell(
                     row=row_num,
                     column=header_indexes["Predicted Container Dictionary Diagnosis"]
                     + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_name"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_name"
+                    ),
                 )
 
                 # New container diagnosis group fields
                 sheet.cell(
                     row=row_num,
                     column=header_indexes["Predicted Container Diagnosis Group 1"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_group_1"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_group_1"
+                    ),
                 )
                 sheet.cell(
                     row=row_num,
                     column=header_indexes["Predicted Container Diagnosis Group 2"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_group_2"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_group_2"
+                    ),
                 )
                 sheet.cell(
                     row=row_num,
                     column=header_indexes["Predicted Container Diagnosis Group 3"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_group_3"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_group_3"
+                    ),
                 )
 
             # Remaining unchanged fields
@@ -498,14 +559,18 @@ def merge_predictions_into_validation_template(
                 sheet.cell(
                     row=new_row,
                     column=header_indexes["Predicted Container Diagnosis Code"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_code"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_code"
+                    ),
                 )
 
                 # Predicted Container Score
                 sheet.cell(
                     row=new_row,
                     column=header_indexes["Predicted Container Score"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_score"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_score"
+                    ),
                 )
 
                 # Predicted Container Dictionary Diagnosis
@@ -513,24 +578,32 @@ def merge_predictions_into_validation_template(
                     row=new_row,
                     column=header_indexes["Predicted Container Dictionary Diagnosis"]
                     + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_name"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_name"
+                    ),
                 )
 
                 # Predicted Container Diagnosis Group Fields
                 sheet.cell(
                     row=new_row,
                     column=header_indexes["Predicted Container Diagnosis Group 1"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_group_1"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_group_1"
+                    ),
                 )
                 sheet.cell(
                     row=new_row,
                     column=header_indexes["Predicted Container Diagnosis Group 2"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_group_2"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_group_2"
+                    ),
                 )
                 sheet.cell(
                     row=new_row,
                     column=header_indexes["Predicted Container Diagnosis Group 3"] + 1,
-                    value=resolve_container_field(container, "valid_diagnosis_group_3"),
+                    value=extract_container_diagnosis_field(
+                        container, "valid_diagnosis_group_3"
+                    ),
                 )
 
     # --- FIX Container Duplicate formulas after row insertions ---
@@ -660,3 +733,33 @@ def merge_predictions_into_validation_template(
 
     output_excel.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_excel)
+
+
+def load_config(config_path: str = "configs/excel/excel_merge.yaml") -> dict:
+    """Load configuration from YAML file."""
+    config_file = Path(config_path)
+    if not config_file.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+    with open(config_file) as f:
+        config = yaml.safe_load(f)
+
+    return config
+
+
+def main() -> int:
+    """Main entry point for Excel merge with config loading."""
+    # Load default config from YAML
+    config = load_config()
+
+    merge_predictions_into_validation_template(
+        input_excel=Path(config.get("input_excel")),
+        predictions_jsonl=Path(config.get("predictions_jsonl")),
+        output_excel=Path(config.get("output_excel")),
+    )
+    print(f"Wrote merged Excel: {config.get('output_excel')}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
