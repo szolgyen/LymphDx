@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 SUPPORTED_BACKENDS = {"dummy", "hf", "vllm", "sglang", "ollama"}
-SUPPORTED_DECODERS = {"auto", "none", "sglang", "guidance", "outlines"}
+SUPPORTED_DECODERS = {"none", "guidance", "outlines"}
 
 
 def _resolve_decoder(backend: str, decoder: str) -> str:
@@ -24,21 +24,8 @@ def _resolve_decoder(backend: str, decoder: str) -> str:
             f"Unsupported decoder '{decoder}'. Allowed: {sorted(SUPPORTED_DECODERS)}"
         )
 
-    if decoder_name == "auto":
-        defaults = {
-            "dummy": "none",
-            "hf": "guidance",
-            "vllm": "outlines",
-            "sglang": "sglang",
-            "ollama": "outlines",
-        }
-        return defaults[backend]
-
     if backend == "dummy" and decoder_name != "none":
         raise ValueError("dummy backend only supports decoder='none'")
-
-    if backend == "sglang" and decoder_name not in {"sglang", "none"}:
-        raise ValueError("sglang backend supports decoders: sglang, none")
 
     return decoder_name
 
@@ -46,7 +33,7 @@ def _resolve_decoder(backend: str, decoder: str) -> str:
 def create_adapter(
     backend: str,
     model: str,
-    decoder: str = "auto",
+    decoder: str = "none",
     allowed_diagnoses: set[str] | None = None,
     schema_model: type[BaseModel] | None = None,
 ) -> BaseModelAdapter:

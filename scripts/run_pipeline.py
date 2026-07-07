@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 CONFIG_DEFAULTS: dict[str, Any] = {
     "backend": "dummy",
     "model": "google/medgemma-4b-it",
-    "decoder": "auto",
+    "decoder": "none",
     "schema": "v2",
     "input_file": None,
     "diagnosis_terms_file": "configs/extraction/diagnosis_terms_v1.txt",
@@ -35,7 +35,7 @@ CONFIG_DEFAULTS: dict[str, Any] = {
 
 CHOICES: dict[str, set[str]] = {
     "backend": {"dummy", "hf", "vllm", "sglang", "ollama"},
-    "decoder": {"auto", "none", "sglang", "guidance", "outlines"},
+    "decoder": {"none", "guidance", "outlines"},
     "log_level": {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},
 }
 
