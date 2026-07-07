@@ -1,6 +1,6 @@
 from typing import Any, Callable
 
-from pathology_llm.inference.decoders.base import BaseDecoder
+from inference.decoders.base import BaseDecoder
 
 
 class PlaceholderDecoder(BaseDecoder):

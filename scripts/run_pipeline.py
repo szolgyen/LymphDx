@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import Any
 import yaml
 
-from pathology_llm.extraction.pipeline import ExtractionPipeline
-from pathology_llm.inference.adapters.factory import create_adapter
-from pathology_llm.schemas.registry import get_prompt_template_path, get_schema_model
-from pathology_llm.utils.logging_config import configure_logging
-from pathology_llm.utils.utils import (
+from extraction.pipeline import ExtractionPipeline
+from inference.adapters.factory import create_adapter
+from schemas.registry import get_prompt_template_path, get_schema_model
+from utils.logging_config import configure_logging
+from utils.utils import (
     load_reports,
     load_diagnosis_terms,
     prepare_output_store,

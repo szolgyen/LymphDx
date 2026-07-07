@@ -13,30 +13,35 @@ class OntologyMatcher:
     def __init__(
         self,
         ontology,
-        embedding_model="neuml/pubmedbert-base-embeddings",
+        embedding_model="cambridgeltl/SapBERT-from-PubMedBERT-fulltext",  # "vinid/plip",  # "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",  # "neuml/pubmedbert-base-embeddings",
         reranker_model="ncbi/MedCPT-Cross-Encoder",
         retrieval_k=50,
         acceptance_threshold=0.55,
+        use_prefilter=True,
+        code_to_groups=None,
     ):
         self.ontology = ontology
         self.retrieval_k = retrieval_k
         self.acceptance_threshold = acceptance_threshold
-
-        print("Loading embedding model...")
-        self.embedder = SentenceTransformer(embedding_model)
+        self.use_prefilter = use_prefilter
+        self.code_to_groups = code_to_groups or {}
 
         print("Loading reranker...")
         self.reranker = CrossEncoder(reranker_model)
 
-        ontology_texts = [item["description"] for item in ontology]
+        if self.use_prefilter:
+            print("Loading embedding model...")
+            self.embedder = SentenceTransformer(embedding_model)
 
-        print("Computing ontology embeddings...")
-        self.ontology_embeddings = self.embedder.encode(
-            ontology_texts,
-            normalize_embeddings=True,
-            convert_to_tensor=True,
-            show_progress_bar=True,
-        )
+            ontology_texts = [item["description"] for item in ontology]
+
+            print("Computing ontology embeddings...")
+            self.ontology_embeddings = self.embedder.encode(
+                ontology_texts,
+                normalize_embeddings=True,
+                convert_to_tensor=True,
+                show_progress_bar=True,
+            )
 
     def match(self, text):
 
@@ -48,44 +53,56 @@ class OntologyMatcher:
         if not text:
             return None
 
-        query_embedding = self.embedder.encode(
-            text,
-            normalize_embeddings=True,
-            convert_to_tensor=True,
-        )
-
-        similarities = cos_sim(
-            query_embedding,
-            self.ontology_embeddings,
-        )[0]
-
-        top_k = min(
-            self.retrieval_k,
-            len(self.ontology),
-        )
-
-        top_indices = torch.topk(
-            similarities,
-            k=top_k,
-        ).indices.tolist()
-
         candidate_concepts = {}
 
-        for idx in top_indices:
-            concept = self.ontology[idx]
+        if self.use_prefilter:
+            query_embedding = self.embedder.encode(
+                text,
+                normalize_embeddings=True,
+                convert_to_tensor=True,
+            )
 
-            label = concept["label"]
+            similarities = cos_sim(
+                query_embedding,
+                self.ontology_embeddings,
+            )[0]
 
-            similarity = float(similarities[idx])
+            top_k = min(
+                self.retrieval_k,
+                len(self.ontology),
+            )
 
-            if (
-                label not in candidate_concepts
-                or similarity > candidate_concepts[label]["similarity"]
-            ):
-                candidate_concepts[label] = {
-                    "concept": concept,
-                    "similarity": similarity,
-                }
+            top_indices = torch.topk(
+                similarities,
+                k=top_k,
+            ).indices.tolist()
+
+            for idx in top_indices:
+                concept = self.ontology[idx]
+
+                label = concept["label"]
+
+                similarity = float(similarities[idx])
+
+                if (
+                    label not in candidate_concepts
+                    or similarity > candidate_concepts[label]["similarity"]
+                ):
+                    candidate_concepts[label] = {
+                        "concept": concept,
+                        "similarity": similarity,
+                    }
+
+        else:
+            # no retrieval stage: send everything to cross encoder
+            for concept in self.ontology:
+                label = concept["label"]
+
+                if label not in candidate_concepts:
+                    candidate_concepts[label] = {
+                        "concept": concept,
+                        "similarity": None,
+                    }
 
         pairs = []
 
@@ -145,18 +162,27 @@ class OntologyMatcher:
 
         best_concept = candidate_concepts[best_code]["concept"]
 
-        return {
+        result = {
             "code": best_code,
             "name": best_concept["description"],
             "score": best_score,
         }
+
+        # Add diagnostic groups if available
+        if best_code in self.code_to_groups:
+            groups = self.code_to_groups[best_code]
+            result["group_1"] = groups.get("Diagnostic group 1")
+            result["group_2"] = groups.get("Diagnostic group 2")
+            result["group_3"] = groups.get("Diagnostic group 3")
+
+        return result
 
 
 def load_ontology(excel_file):
     """
     Input Excel:
 
-    Code | Diagnosis
+    Code | Diagnosis | Diagnostic group 1 | Diagnostic group 2 | Diagnostic group 3
 
     Multiple rows with same code are treated as synonyms.
     """
@@ -171,6 +197,7 @@ def load_ontology(excel_file):
         raise ValueError(f"Missing columns in ontology file: {missing}")
 
     grouped = defaultdict(list)
+    code_to_groups = {}
 
     for _, row in df.iterrows():
         code = row["Code"]
@@ -180,6 +207,14 @@ def load_ontology(excel_file):
             continue
 
         grouped[code].append(str(diagnosis).strip())
+
+        # Store group information for each code (take first occurrence)
+        if code not in code_to_groups:
+            code_to_groups[code] = {
+                "Diagnostic group 1": row.get("Diagnostic group 1"),
+                "Diagnostic group 2": row.get("Diagnostic group 2"),
+                "Diagnostic group 3": row.get("Diagnostic group 3"),
+            }
 
     ontology = []
 
@@ -199,7 +234,7 @@ def load_ontology(excel_file):
         f"Loaded {len(ontology)} synonym entries for {len(grouped)} ontology concepts"
     )
 
-    return ontology
+    return ontology, code_to_groups
 
 
 def process_jsonl(
@@ -227,10 +262,16 @@ def process_jsonl(
                 record["valid_primary_diagnosis_code"] = None
                 record["valid_primary_diagnosis_name"] = None
                 record["valid_primary_diagnosis_score"] = None
+                record["valid_primary_diagnosis_group_1"] = None
+                record["valid_primary_diagnosis_group_2"] = None
+                record["valid_primary_diagnosis_group_3"] = None
             else:
                 record["valid_primary_diagnosis_code"] = result["code"]
                 record["valid_primary_diagnosis_name"] = result["name"]
                 record["valid_primary_diagnosis_score"] = result["score"]
+                record["valid_primary_diagnosis_group_1"] = result.get("group_1")
+                record["valid_primary_diagnosis_group_2"] = result.get("group_2")
+                record["valid_primary_diagnosis_group_3"] = result.get("group_3")
 
             containers = record.get("containers", [])
 
@@ -243,10 +284,16 @@ def process_jsonl(
                     container["valid_diagnosis_code"] = None
                     container["valid_diagnosis_name"] = None
                     container["valid_diagnosis_score"] = None
+                    container["valid_diagnosis_group_1"] = None
+                    container["valid_diagnosis_group_2"] = None
+                    container["valid_diagnosis_group_3"] = None
                 else:
                     container["valid_diagnosis_code"] = result["code"]
                     container["valid_diagnosis_name"] = result["name"]
                     container["valid_diagnosis_score"] = result["score"]
+                    container["valid_diagnosis_group_1"] = result.get("group_1")
+                    container["valid_diagnosis_group_2"] = result.get("group_2")
+                    container["valid_diagnosis_group_3"] = result.get("group_3")
 
             fout.write(
                 json.dumps(
@@ -276,7 +323,8 @@ def main():
 
     parser.add_argument(
         "--ontology-file",
-        required=True,
+        required=False,
+        default="configs/extraction/LN_Dx_dictionary_codes_20260625.xlsx",
         help="Ontology Excel file",
     )
 
@@ -298,14 +346,22 @@ def main():
         default=10,
     )
 
+    parser.add_argument(
+        "--use-prefilter",
+        action="store_true",
+        help="Use embedding retrieval before reranking",
+    )
+
     args = parser.parse_args()
 
-    ontology = load_ontology(args.ontology_file)
+    ontology, code_to_groups = load_ontology(args.ontology_file)
 
     matcher = OntologyMatcher(
         ontology=ontology,
         retrieval_k=args.retrieval_k,
         acceptance_threshold=args.threshold,
+        use_prefilter=args.use_prefilter,
+        code_to_groups=code_to_groups,
     )
 
     process_jsonl(

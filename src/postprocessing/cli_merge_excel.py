@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from pathology_llm.postprocessing.excel_merge import (
+from postprocessing.excel_merge import (
     merge_predictions_into_validation_template,
 )
 

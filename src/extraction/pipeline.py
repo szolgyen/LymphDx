@@ -3,10 +3,10 @@ from pathlib import Path
 from typing import Callable
 from pydantic import BaseModel
 
-from pathology_llm.inference.adapters.base import BaseModelAdapter
-from pathology_llm.preprocessing.data_parsing import ParsedReport
-from pathology_llm.prompting.prompt_builder import build_extraction_prompt_from_template
-from pathology_llm.schemas.validation import SchemaValidationError
+from inference.adapters.base import BaseModelAdapter
+from preprocessing.data_parsing import ParsedReport
+from prompting.prompt_builder import build_extraction_prompt_from_template
+from schemas.validation import SchemaValidationError
 
 
 logger = logging.getLogger(__name__)

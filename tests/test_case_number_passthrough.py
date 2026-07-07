@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from pathology_llm.extraction.pipeline import ExtractionPipeline
-from pathology_llm.inference.adapters.base import BaseModelAdapter
-from pathology_llm.preprocessing.data_parsing import ParsedReport
-from pathology_llm.schemas.pathology import PathologyExtraction
-from pathology_llm.utils.utils import (
+from extraction.pipeline import ExtractionPipeline
+from inference.adapters.base import BaseModelAdapter
+from preprocessing.data_parsing import ParsedReport
+from schemas.pathology import PathologyExtractionV2
+from utils.utils import (
     load_reports,
     prepare_output_store,
     write_output_record,
@@ -19,12 +19,12 @@ class _StubAdapter(BaseModelAdapter):
     def generate(self, prompt: str) -> str:
         raise NotImplementedError
 
-    def parse(self, raw: str) -> PathologyExtraction:
+    def parse(self, raw: str) -> PathologyExtractionV2:
         raise NotImplementedError
 
-    def extract(self, prompt: str) -> PathologyExtraction:
+    def extract(self, prompt: str) -> PathologyExtractionV2:
         self.last_prompt = prompt
-        return PathologyExtraction(primary_diagnosis="Adenocarcinoma")
+        return PathologyExtractionV2(primary_diagnosis="Adenocarcinoma")
 
 
 def test_pipeline_attaches_case_id_without_prompt_injection(tmp_path: Path) -> None:

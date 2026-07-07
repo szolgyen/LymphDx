@@ -4,10 +4,10 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pathology_llm.inference.decoders.base import BaseDecoder
-from pathology_llm.inference.decoders.factory import create_decoder
-from pathology_llm.inference.adapters.base import BaseModelAdapter
-from pathology_llm.schemas.validation import (
+from inference.decoders.base import BaseDecoder
+from inference.decoders.factory import create_decoder
+from inference.adapters.base import BaseModelAdapter
+from schemas.validation import (
     SchemaValidationError,
     validate_output,
 )

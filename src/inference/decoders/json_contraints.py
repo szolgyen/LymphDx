@@ -4,8 +4,8 @@ from typing import Any, Callable
 
 from pydantic import BaseModel
 
-from pathology_llm.inference.decoders.base import BaseDecoder
-from pathology_llm.schemas.pathology import PathologyExtractionV2
+from inference.decoders.base import BaseDecoder
+from schemas.pathology import PathologyExtractionV2
 
 
 class StrictJsonDecoder(BaseDecoder):

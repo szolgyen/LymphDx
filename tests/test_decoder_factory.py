@@ -1,6 +1,6 @@
 import pytest
 
-from pathology_llm.inference.decoders.factory import create_decoder
+from inference.decoders.factory import create_decoder
 
 
 def test_create_decoder_returns_outlines_not_implemented_for_vllm():

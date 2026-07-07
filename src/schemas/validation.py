@@ -5,7 +5,7 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic import ValidationError
 
-from pathology_llm.schemas.pathology import PathologyExtractionV2
+from schemas.pathology import PathologyExtractionV2
 
 
 class SchemaValidationError(Exception):
@@ -28,7 +28,7 @@ def _flatten_constrained_values(value: Any, field_path: str) -> list[tuple[str, 
     if isinstance(value, Iterable) and not isinstance(value, (str, bytes, dict)):
         flattened: list[tuple[str, str]] = []
         for idx, item in enumerate(value):
-            flattened.extend(_flatten_constrained_values(item, f"{field_path}[{idx}]") )
+            flattened.extend(_flatten_constrained_values(item, f"{field_path}[{idx}]"))
         return flattened
     return []
 

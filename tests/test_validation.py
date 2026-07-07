@@ -1,8 +1,10 @@
 import pytest
+from pydantic import BaseModel, Field
 
-from pathology_llm.schemas.validation import (
+from schemas.validation import (
     DiagnosisConstraintError,
     SchemaValidationError,
+    validate_output,
     validate_pathology_output,
 )
 
@@ -122,3 +124,59 @@ def test_validation_rejects_unsupported_schema_version() -> None:
 
     with pytest.raises(SchemaValidationError, match="Schema mismatch"):
         validate_pathology_output(raw)
+
+
+def test_validate_output_applies_constraints_for_v3_primary_diagnosis() -> None:
+    raw = {
+        "schema_version": "v3",
+        "primary_diagnosis": "Disallowed diagnosis",
+        "container": None,
+    }
+    allowed = {"Adenocarcinoma", "Reactive lymphoid hyperplasia"}
+
+    from schemas.pathology import PathologyExtractionV3
+
+    with pytest.raises(DiagnosisConstraintError):
+        validate_output(
+            raw, schema_model=PathologyExtractionV3, allowed_diagnoses=allowed
+        )
+
+
+def test_validate_output_does_not_constrain_v3_container_diagnosis() -> None:
+    raw = {
+        "schema_version": "v3",
+        "primary_diagnosis": "Adenocarcinoma",
+        "container": {
+            "label": "A",
+            "source": "Lung",
+            "diagnosis": "Disallowed diagnosis",
+        },
+    }
+    allowed = {"Adenocarcinoma", "Reactive lymphoid hyperplasia"}
+
+    from schemas.pathology import PathologyExtractionV3
+
+    obj = validate_output(
+        raw, schema_model=PathologyExtractionV3, allowed_diagnoses=allowed
+    )
+    assert obj.primary_diagnosis == "Adenocarcinoma"
+    assert obj.container is not None
+    assert obj.container.diagnosis == "Disallowed diagnosis"
+
+
+def test_validate_output_enforces_constraints_for_any_new_schema_with_metadata() -> (
+    None
+):
+    class _SchemaWithConstrainedField(BaseModel):
+        schema_version: str = "vx"
+        diagnosis_like_field: str = Field(
+            ..., json_schema_extra={"x-reportllm-diagnosis-constrained": True}
+        )
+
+    raw = {"schema_version": "vx", "diagnosis_like_field": "Unknown"}
+    allowed = {"Known"}
+
+    with pytest.raises(DiagnosisConstraintError):
+        validate_output(
+            raw, schema_model=_SchemaWithConstrainedField, allowed_diagnoses=allowed
+        )

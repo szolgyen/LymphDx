@@ -1,5 +1,5 @@
-from pathology_llm.inference.adapters.hf import HFAdapter
-from pathology_llm.inference.decoders.none import NoneDecoder
+from inference.adapters.hf import HFAdapter
+from inference.decoders.none import NoneDecoder
 
 
 def test_hf_adapter_none_decoder_allows_unconstrained_primary_diagnosis() -> None:

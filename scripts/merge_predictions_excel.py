@@ -1,4 +1,4 @@
-from pathology_llm.postprocessing.cli_merge_excel import main
+from postprocessing.cli_merge_excel import main
 
 
 if __name__ == "__main__":

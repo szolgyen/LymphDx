@@ -292,7 +292,7 @@ def main():
     parser.add_argument(
         "--ontology-file",
         required=False,
-        default="configs/extraction/LN_Dx_dictionary_codes_20260624.xlsx",
+        default="configs/extraction/LN_Dx_dictionary_codes_20260625.xlsx",
         help="Ontology Excel file",
     )
 

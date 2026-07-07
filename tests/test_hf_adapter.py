@@ -1,9 +1,9 @@
 import pytest
 
-from pathology_llm.inference.adapters.hf import HFAdapter
-from pathology_llm.inference.decoders.hf_guidance import HFGuidanceDecoder
-from pathology_llm.inference.decoders.outlines import OutlinesDecoder
-from pathology_llm.schemas.validation import (
+from inference.adapters.hf import HFAdapter
+from inference.decoders.hf_guidance import HFGuidanceDecoder
+from inference.decoders.outlines import OutlinesDecoder
+from schemas.validation import (
     DiagnosisConstraintError,
     SchemaValidationError,
 )

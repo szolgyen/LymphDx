@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 
-from pathology_llm.preprocessing.data_parsing import (
+from preprocessing.data_parsing import (
     ParsedReport,
     load_reports_from_excel,
 )

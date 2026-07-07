@@ -1,4 +1,4 @@
-from pathology_llm.inference.adapters.placeholder import PlaceholderAdapter
+from inference.adapters.placeholder import PlaceholderAdapter
 
 
 class SGLangAdapter(PlaceholderAdapter):

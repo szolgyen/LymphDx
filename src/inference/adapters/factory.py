@@ -2,12 +2,12 @@ import logging
 
 from pydantic import BaseModel
 
-from pathology_llm.inference.adapters.base import BaseModelAdapter
-from pathology_llm.inference.adapters.dummy import DummyAdapter
-from pathology_llm.inference.adapters.hf import HFAdapter
-from pathology_llm.inference.adapters.ollama import OllamaAdapter
-from pathology_llm.inference.adapters.sglang import SGLangAdapter
-from pathology_llm.inference.adapters.vllm import VLLMAdapter
+from inference.adapters.base import BaseModelAdapter
+from inference.adapters.dummy import DummyAdapter
+from inference.adapters.hf import HFAdapter
+from inference.adapters.ollama import OllamaAdapter
+from inference.adapters.sglang import SGLangAdapter
+from inference.adapters.vllm import VLLMAdapter
 
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 from openpyxl.worksheet.table import Table
 
-from pathology_llm.postprocessing.predictions import (
+from postprocessing.predictions import (
     load_prediction_records,
     normalize_case_id,
     to_excel_value,
@@ -291,6 +291,23 @@ def merge_predictions_into_validation_template(
                 value=to_excel_value(record.get("valid_primary_diagnosis_name")),
             )
 
+            # New primary diagnosis group fields
+            sheet.cell(
+                row=row_num,
+                column=header_indexes["Predicted Diagnosis Group 1"] + 1,
+                value=to_excel_value(record.get("valid_primary_diagnosis_group_1")),
+            )
+            sheet.cell(
+                row=row_num,
+                column=header_indexes["Predicted Diagnosis Group 2"] + 1,
+                value=to_excel_value(record.get("valid_primary_diagnosis_group_2")),
+            )
+            sheet.cell(
+                row=row_num,
+                column=header_indexes["Predicted Diagnosis Group 3"] + 1,
+                value=to_excel_value(record.get("valid_primary_diagnosis_group_3")),
+            )
+
             # --- Handle missing containers ---
             if container is None:
                 sheet.cell(
@@ -379,6 +396,23 @@ def merge_predictions_into_validation_template(
                     column=header_indexes["Predicted Container Dictionary Diagnosis"]
                     + 1,
                     value=resolve_container_field(container, "valid_diagnosis_name"),
+                )
+
+                # New container diagnosis group fields
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Diagnosis Group 1"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_group_1"),
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Diagnosis Group 2"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_group_2"),
+                )
+                sheet.cell(
+                    row=row_num,
+                    column=header_indexes["Predicted Container Diagnosis Group 3"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_group_3"),
                 )
 
             # Remaining unchanged fields
@@ -482,6 +516,23 @@ def merge_predictions_into_validation_template(
                     value=resolve_container_field(container, "valid_diagnosis_name"),
                 )
 
+                # Predicted Container Diagnosis Group Fields
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container Diagnosis Group 1"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_group_1"),
+                )
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container Diagnosis Group 2"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_group_2"),
+                )
+                sheet.cell(
+                    row=new_row,
+                    column=header_indexes["Predicted Container Diagnosis Group 3"] + 1,
+                    value=resolve_container_field(container, "valid_diagnosis_group_3"),
+                )
+
     # --- FIX Container Duplicate formulas after row insertions ---
     container_dup_col = header_indexes.get("Container Duplicate")
     id_col = header_indexes.get("Id")
@@ -510,6 +561,21 @@ def merge_predictions_into_validation_template(
             "Predicted Dictionary Diagnosis Match",
         ),
         ("GT Code", "Predicted Code", "Predicted Code Match"),
+        (
+            "GT Report Diagnosis Group 1",
+            "Predicted Diagnosis Group 1",
+            "Predicted Diagnosis Group 1 Match",
+        ),
+        (
+            "GT Report Diagnosis Group 2",
+            "Predicted Diagnosis Group 2",
+            "Predicted Diagnosis Group 2 Match",
+        ),
+        (
+            "GT Report Diagnosis Group 3",
+            "Predicted Diagnosis Group 3",
+            "Predicted Diagnosis Group 3 Match",
+        ),
         ("GT Container", "Predicted Container", "Predicted Container Match"),
         (
             "GT Has Differential Diagnosis",
@@ -535,6 +601,21 @@ def merge_predictions_into_validation_template(
             "GT Has Concurrent Malignancy",
             "Predicted Has Concurrent Malignancy",
             "Predicted Has Concurrent Malignancy Match",
+        ),
+        (
+            "GT Container Diagnosis Group 1",
+            "Predicted Container Diagnosis Group 1",
+            "Predicted Container Diagnosis Group 1 Match",
+        ),
+        (
+            "GT Container Diagnosis Group 2",
+            "Predicted Container Diagnosis Group 2",
+            "Predicted Container Diagnosis Group 2 Match",
+        ),
+        (
+            "GT Container Diagnosis Group 3",
+            "Predicted Container Diagnosis Group 3",
+            "Predicted Container Diagnosis Group 3 Match",
         ),
     ]
 

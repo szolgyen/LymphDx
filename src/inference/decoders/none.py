@@ -3,7 +3,7 @@ from typing import Any, Callable
 
 from pydantic import BaseModel
 
-from pathology_llm.inference.decoders.json_contraints import StrictJsonDecoder
+from inference.decoders.json_contraints import StrictJsonDecoder
 
 
 class NoneDecoder(StrictJsonDecoder):

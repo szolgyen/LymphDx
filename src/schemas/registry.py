@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pathology_llm.schemas import pathology
+from schemas import pathology
 
 
 _SCHEMA_NAME_RE = re.compile(r"^schema_(v[0-9][A-Za-z0-9_]*)$")

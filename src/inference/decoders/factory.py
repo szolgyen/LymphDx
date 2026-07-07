@@ -3,11 +3,11 @@ from typing import Any, Callable
 
 from pydantic import BaseModel
 
-from pathology_llm.inference.decoders.base import BaseDecoder
-from pathology_llm.inference.decoders.hf_guidance import HFGuidanceDecoder
-from pathology_llm.inference.decoders.none import NoneDecoder
-from pathology_llm.inference.decoders.outlines import OutlinesDecoder
-from pathology_llm.inference.decoders.sglang import SGLangDecoder
+from inference.decoders.base import BaseDecoder
+from inference.decoders.hf_guidance import HFGuidanceDecoder
+from inference.decoders.none import NoneDecoder
+from inference.decoders.outlines import OutlinesDecoder
+from inference.decoders.sglang import SGLangDecoder
 
 
 def create_decoder(

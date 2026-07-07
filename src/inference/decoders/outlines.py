@@ -6,10 +6,10 @@ from typing import Any, Callable
 
 from pydantic import BaseModel
 
-from pathology_llm.inference.decoders.diagnosis_constraints import (
+from inference.decoders.diagnosis_constraints import (
     DiagnosisConstraintsMixin,
 )
-from pathology_llm.inference.decoders.json_contraints import StrictJsonDecoder
+from inference.decoders.json_contraints import StrictJsonDecoder
 
 
 class OutlinesDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):

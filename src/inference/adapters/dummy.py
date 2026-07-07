@@ -1,5 +1,5 @@
-from pathology_llm.inference.adapters.base import BaseModelAdapter
-from pathology_llm.schemas.validation import validate_pathology_output
+from inference.adapters.base import BaseModelAdapter
+from schemas.validation import validate_pathology_output
 
 
 class DummyAdapter(BaseModelAdapter):

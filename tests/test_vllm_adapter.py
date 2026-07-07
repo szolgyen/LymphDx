@@ -1,6 +1,6 @@
 import pytest
 
-from pathology_llm.inference.adapters.vllm import VLLMAdapter
+from inference.adapters.vllm import VLLMAdapter
 
 
 def test_vllm_adapter_is_placeholder():

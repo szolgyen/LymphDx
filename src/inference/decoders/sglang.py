@@ -1,4 +1,4 @@
-from pathology_llm.inference.decoders.placeholder import PlaceholderDecoder
+from inference.decoders.placeholder import PlaceholderDecoder
 
 
 class SGLangDecoder(PlaceholderDecoder):
