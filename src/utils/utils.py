@@ -55,7 +55,7 @@ def write_outputs(output_dir: str, outputs: list[dict]) -> None:
     logger.info("Wrote %d outputs to %s", len(outputs), output_dir)
 
 
-def prepare_output_store(output_dir: str) -> None:
+def prepare_output_store(output_dir: str, timestamp: str | None = None) -> None:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
@@ -64,14 +64,24 @@ def prepare_output_store(output_dir: str) -> None:
     for case_prompt in out_path.glob("case_*.txt"):
         case_prompt.unlink()
 
-    jsonl_path = out_path / "predictions.jsonl"
+    predictions_filename = (
+        f"predictions_{timestamp}.jsonl" if timestamp else "predictions.jsonl"
+    )
+    jsonl_path = out_path / predictions_filename
     jsonl_path.write_text("", encoding="utf-8")
 
-    broken_jsonl_path = out_path / "predictions_broken.jsonl"
+    broken_predictions_filename = (
+        f"predictions_broken_{timestamp}.jsonl"
+        if timestamp
+        else "predictions_broken.jsonl"
+    )
+    broken_jsonl_path = out_path / broken_predictions_filename
     broken_jsonl_path.write_text("", encoding="utf-8")
 
 
-def write_output_record(output_dir: str, report_index: int, output: dict) -> None:
+def write_output_record(
+    output_dir: str, report_index: int, output: dict, timestamp: str | None = None
+) -> None:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
 
@@ -79,7 +89,10 @@ def write_output_record(output_dir: str, report_index: int, output: dict) -> Non
         json.dumps(output, indent=2),
         encoding="utf-8",
     )
-    with (out_path / "predictions.jsonl").open("a", encoding="utf-8") as f:
+    predictions_filename = (
+        f"predictions_{timestamp}.jsonl" if timestamp else "predictions.jsonl"
+    )
+    with (out_path / predictions_filename).open("a", encoding="utf-8") as f:
         f.write(json.dumps(output) + "\n")
 
 
@@ -94,7 +107,11 @@ def write_prompt_record(output_dir: str, report_index: int, prompt: str) -> None
 
 
 def write_broken_extraction_record(
-    output_dir: str, report_index: int, raw_output: str | None, error_message: str
+    output_dir: str,
+    report_index: int,
+    raw_output: str | None,
+    error_message: str,
+    timestamp: str | None = None,
 ) -> None:
     """Write broken/unparseable extraction to a separate file for debugging."""
     out_path = Path(output_dir)
@@ -106,5 +123,10 @@ def write_broken_extraction_record(
         "raw_output": raw_output,
     }
 
-    with (out_path / "predictions_broken.jsonl").open("a", encoding="utf-8") as f:
+    broken_predictions_filename = (
+        f"predictions_broken_{timestamp}.jsonl"
+        if timestamp
+        else "predictions_broken.jsonl"
+    )
+    with (out_path / broken_predictions_filename).open("a", encoding="utf-8") as f:
         f.write(json.dumps(broken_record) + "\n")

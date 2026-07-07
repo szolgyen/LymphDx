@@ -92,7 +92,8 @@ def main() -> int:
     prompt_template_path = get_prompt_template_path(config["schema"])
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = Path("outputs/logs") / f"run_pipeline_{timestamp}.log"
+    timestamped_output_dir = Path(config["output_dir"]) / timestamp
+    log_file = timestamped_output_dir / f"run_pipeline_{timestamp}.log"
     configure_logging(config["log_level"], log_file=str(log_file))
 
     try:
@@ -121,16 +122,17 @@ def main() -> int:
             allowed_diagnoses=allowed_diagnoses,
             include_diagnosis_constraints=(config["decoder"] != "none"),
         )
-        prepare_output_store(config["output_dir"])
+        prepare_output_store(str(timestamped_output_dir), timestamp=timestamp)
 
         def _persist_output(report_index: int, extraction_output, prompt: str) -> None:
             write_output_record(
-                output_dir=config["output_dir"],
+                output_dir=str(timestamped_output_dir),
                 report_index=report_index,
                 output=extraction_output.model_dump(),
+                timestamp=timestamp,
             )
             write_prompt_record(
-                output_dir=config["output_dir"],
+                output_dir=str(timestamped_output_dir),
                 report_index=report_index,
                 prompt=prompt,
             )
@@ -139,10 +141,11 @@ def main() -> int:
             report_index: int, raw_output: str | None, error_message: str
         ) -> None:
             write_broken_extraction_record(
-                output_dir=config["output_dir"],
+                output_dir=str(timestamped_output_dir),
                 report_index=report_index,
                 raw_output=raw_output,
                 error_message=error_message,
+                timestamp=timestamp,
             )
 
         extraction_outputs = pipeline.extract_reports(
