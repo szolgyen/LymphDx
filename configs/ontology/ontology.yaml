@@ -1,0 +1,18 @@
+# Ontology matching configuration
+
+# File paths
+input_file: outputs/predictions/none/predictions.jsonl
+output_file: outputs/excel/ontology_matched.jsonl
+ontology_file: configs/extraction/LN_Dx_dictionary_codes_20260630.xlsx
+
+# Models
+models:
+  embedding_model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+  reranker_model: ncbi/MedCPT-Cross-Encoder
+
+# Matching parameters
+matching:
+  retrieval_k: 50
+  acceptance_threshold: -10.0
+  use_prefilter: true
+  top_n: 5

@@ -1,10 +1,12 @@
 import argparse
 import json
 from collections import defaultdict
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
+import yaml
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from sentence_transformers.util import cos_sim
 
@@ -18,11 +20,13 @@ class OntologyMatcher:
         retrieval_k=50,
         acceptance_threshold=0.55,
         use_prefilter=True,
+        code_to_groups=None,
     ):
         self.ontology = ontology
         self.retrieval_k = retrieval_k
         self.acceptance_threshold = acceptance_threshold
         self.use_prefilter = use_prefilter
+        self.code_to_groups = code_to_groups or {}
 
         print("Loading reranker...")
         self.reranker = CrossEncoder(reranker_model)
@@ -41,15 +45,15 @@ class OntologyMatcher:
                 show_progress_bar=True,
             )
 
-    def match(self, text):
+    def match(self, text, top_n=5):
 
         if text is None:
-            return None
+            return {}
 
         text = str(text).strip()
 
         if not text:
-            return None
+            return {}
 
         candidate_concepts = {}
 
@@ -149,29 +153,44 @@ class OntologyMatcher:
 
             adjusted_scores.append(float(score) + bonus + penalty)
 
-        best_idx = int(np.argmax(adjusted_scores))
+        # Get top N results sorted by score (descending)
+        top_indices = np.argsort(adjusted_scores)[::-1][:top_n]
 
-        best_score = float(adjusted_scores[best_idx])
+        results = {}
 
-        best_code = labels[best_idx]
+        for rank, idx in enumerate(top_indices, start=1):
+            score = float(adjusted_scores[idx])
 
-        if best_score < self.acceptance_threshold:
-            return None
+            # Skip if below threshold
+            if score < self.acceptance_threshold:
+                continue
 
-        best_concept = candidate_concepts[best_code]["concept"]
+            code = labels[idx]
+            concept = candidate_concepts[code]["concept"]
 
-        return {
-            "code": best_code,
-            "name": best_concept["description"],
-            "score": best_score,
-        }
+            result = {
+                "code": code,
+                "name": concept["description"],
+                "score": score,
+            }
+
+            # Add diagnostic groups if available
+            if code in self.code_to_groups:
+                groups = self.code_to_groups[code]
+                result["group_1"] = groups.get("Diagnostic group 1")
+                result["group_2"] = groups.get("Diagnostic group 2")
+                result["group_3"] = groups.get("Diagnostic group 3")
+
+            results[f"top_{rank}"] = result
+
+        return results
 
 
 def load_ontology(excel_file):
     """
     Input Excel:
 
-    Code | Diagnosis
+    Code | Diagnosis | Diagnostic group 1 | Diagnostic group 2 | Diagnostic group 3
 
     Multiple rows with same code are treated as synonyms.
     """
@@ -186,6 +205,7 @@ def load_ontology(excel_file):
         raise ValueError(f"Missing columns in ontology file: {missing}")
 
     grouped = defaultdict(list)
+    code_to_groups = {}
 
     for _, row in df.iterrows():
         code = row["Code"]
@@ -195,6 +215,14 @@ def load_ontology(excel_file):
             continue
 
         grouped[code].append(str(diagnosis).strip())
+
+        # Store group information for each code (take first occurrence)
+        if code not in code_to_groups:
+            code_to_groups[code] = {
+                "Diagnostic group 1": row.get("Diagnostic group 1"),
+                "Diagnostic group 2": row.get("Diagnostic group 2"),
+                "Diagnostic group 3": row.get("Diagnostic group 3"),
+            }
 
     ontology = []
 
@@ -214,13 +242,14 @@ def load_ontology(excel_file):
         f"Loaded {len(ontology)} synonym entries for {len(grouped)} ontology concepts"
     )
 
-    return ontology
+    return ontology, code_to_groups
 
 
 def process_jsonl(
     input_file,
     output_file,
     matcher,
+    top_n=5,
 ):
 
     n_cases = 0
@@ -236,32 +265,60 @@ def process_jsonl(
 
             primary = record.get("primary_diagnosis")
 
-            result = matcher.match(primary)
+            results = matcher.match(primary, top_n=top_n)
 
-            if result is None:
-                record["valid_primary_diagnosis_code"] = None
-                record["valid_primary_diagnosis_name"] = None
-                record["valid_primary_diagnosis_score"] = None
+            record["valid_primary_diagnoses"] = {}
+
+            if not results:
+                # Add placeholder structure for top_1 when no matches
+                record["valid_primary_diagnoses"]["top_1"] = {
+                    "valid_primary_diagnosis_code": None,
+                    "valid_primary_diagnosis_name": None,
+                    "valid_primary_diagnosis_score": None,
+                    "valid_primary_diagnosis_group_1": None,
+                    "valid_primary_diagnosis_group_2": None,
+                    "valid_primary_diagnosis_group_3": None,
+                }
             else:
-                record["valid_primary_diagnosis_code"] = result["code"]
-                record["valid_primary_diagnosis_name"] = result["name"]
-                record["valid_primary_diagnosis_score"] = result["score"]
+                for rank_key, result in results.items():
+                    record["valid_primary_diagnoses"][rank_key] = {
+                        "valid_primary_diagnosis_code": result["code"],
+                        "valid_primary_diagnosis_name": result["name"],
+                        "valid_primary_diagnosis_score": result["score"],
+                        "valid_primary_diagnosis_group_1": result.get("group_1"),
+                        "valid_primary_diagnosis_group_2": result.get("group_2"),
+                        "valid_primary_diagnosis_group_3": result.get("group_3"),
+                    }
 
             containers = record.get("containers", [])
 
             for container in containers:
                 diagnosis = container.get("diagnosis")
 
-                result = matcher.match(diagnosis)
+                results = matcher.match(diagnosis, top_n=top_n)
 
-                if result is None:
-                    container["valid_diagnosis_code"] = None
-                    container["valid_diagnosis_name"] = None
-                    container["valid_diagnosis_score"] = None
+                container["valid_diagnoses"] = {}
+
+                if not results:
+                    # Add placeholder structure for top_1 when no matches
+                    container["valid_diagnoses"]["top_1"] = {
+                        "valid_diagnosis_code": None,
+                        "valid_diagnosis_name": None,
+                        "valid_diagnosis_score": None,
+                        "valid_diagnosis_group_1": None,
+                        "valid_diagnosis_group_2": None,
+                        "valid_diagnosis_group_3": None,
+                    }
                 else:
-                    container["valid_diagnosis_code"] = result["code"]
-                    container["valid_diagnosis_name"] = result["name"]
-                    container["valid_diagnosis_score"] = result["score"]
+                    for rank_key, result in results.items():
+                        container["valid_diagnoses"][rank_key] = {
+                            "valid_diagnosis_code": result["code"],
+                            "valid_diagnosis_name": result["name"],
+                            "valid_diagnosis_score": result["score"],
+                            "valid_diagnosis_group_1": result.get("group_1"),
+                            "valid_diagnosis_group_2": result.get("group_2"),
+                            "valid_diagnosis_group_3": result.get("group_3"),
+                        }
 
             fout.write(
                 json.dumps(
@@ -279,62 +336,113 @@ def process_jsonl(
     print(f"Finished. Processed {n_cases} cases.")
 
 
+def load_config(config_path="configs/ontology/ontology.yaml"):
+    """Load configuration from YAML file."""
+    config_file = Path(config_path)
+    if not config_file.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+    with open(config_file) as f:
+        config = yaml.safe_load(f)
+
+    return config
+
+
 def main():
+    # Load default config from YAML
+    config = load_config()
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--jsonl-file",
-        required=True,
-        help="Input JSONL file",
+    parser = argparse.ArgumentParser(
+        description="Match ontology terms in prediction JSONL using embeddings and reranking",
     )
 
+    # Optional arguments with config defaults
     parser.add_argument(
-        "--ontology-file",
+        "--jsonl-file",
         required=False,
-        default="configs/extraction/LN_Dx_dictionary_codes_20260625.xlsx",
-        help="Ontology Excel file",
+        default=config.get("input_file"),
+        help="Input JSONL file with predictions",
     )
 
     parser.add_argument(
         "--output-file",
-        required=True,
-        help="Output JSONL file",
+        required=False,
+        default=config.get("output_file"),
+        help="Output JSONL file with ontology matches",
+    )
+
+    # Optional overrides with config defaults
+    parser.add_argument(
+        "--ontology-file",
+        default=config["ontology_file"],
+        help="Ontology Excel file",
+    )
+
+    parser.add_argument(
+        "--config",
+        default="configs/ontology/ontology.yaml",
+        help="Path to ontology configuration YAML file",
     )
 
     parser.add_argument(
         "--threshold",
         type=float,
-        default=-10.55,
+        default=config["matching"]["acceptance_threshold"],
+        help="Acceptance threshold for matches",
     )
 
     parser.add_argument(
         "--retrieval-k",
         type=int,
-        default=10,
+        default=config["matching"]["retrieval_k"],
+        help="Number of candidates to retrieve before reranking",
     )
 
     parser.add_argument(
         "--use-prefilter",
         action="store_true",
+        default=config["matching"]["use_prefilter"],
         help="Use embedding retrieval before reranking",
+    )
+
+    parser.add_argument(
+        "--no-prefilter",
+        action="store_false",
+        dest="use_prefilter",
+        help="Disable embedding retrieval (skip to reranking)",
+    )
+
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=config["matching"]["top_n"],
+        help="Number of top matches to return",
     )
 
     args = parser.parse_args()
 
-    ontology = load_ontology(args.ontology_file)
+    # Validate required arguments
+    if not args.jsonl_file:
+        parser.error("--jsonl-file is required or must be set in config file")
+    if not args.output_file:
+        parser.error("--output-file is required or must be set in config file")
+
+    # Load ontology
+    ontology, code_to_groups = load_ontology(args.ontology_file)
 
     matcher = OntologyMatcher(
         ontology=ontology,
         retrieval_k=args.retrieval_k,
         acceptance_threshold=args.threshold,
         use_prefilter=args.use_prefilter,
+        code_to_groups=code_to_groups,
     )
 
     process_jsonl(
         args.jsonl_file,
         args.output_file,
         matcher,
+        top_n=args.top_n,
     )
 
 
