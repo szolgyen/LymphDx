@@ -1,6 +1,7 @@
 import json
 import logging
 from pathlib import Path
+import pandas as pd
 
 from preprocessing.data_parsing import (
     ParsedReport,
@@ -29,17 +30,21 @@ def load_reports(path: str) -> list[ParsedReport]:
 
 
 def load_diagnosis_terms(path: str | Path) -> set[str]:
-    """Load constrained diagnosis terms from a text file.
+    """Load constrained diagnosis terms from an Excel file.
 
-    Expected format: one diagnosis term per line; empty lines and lines
-    starting with '#' are ignored.
+    Expected format: a column named 'Code' containing one diagnosis term
+    per row. Empty values are ignored.
     """
-    terms: set[str] = set()
-    for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        terms.add(line)
+    df = pd.read_excel(path, engine="openpyxl")
+
+    if "Diagnosis" not in df.columns:
+        raise ValueError(f"Column 'Diagnosis' not found in {path}")
+
+    terms = {
+        str(value).strip()
+        for value in df["Diagnosis"]
+        if pd.notna(value) and str(value).strip()
+    }
 
     if not terms:
         raise ValueError(f"No diagnosis terms loaded from {path}")
