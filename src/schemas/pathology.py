@@ -7,6 +7,14 @@ class Biomarker(BaseModel):
     value: Optional[str] = None
 
 
+class ContainerInfo(BaseModel):
+    label: Optional[str] = None
+    specimen: Optional[str] = None
+    is_lymph_node: Optional[bool] = None
+    anatomic_location: Optional[str] = None
+    diagnosis: Optional[str] = None
+
+
 class PathologyExtractionV2(BaseModel):
     schema_version: Literal["v2"] = Field(default="v2", frozen=True)
 
@@ -40,17 +48,6 @@ class PathologyExtractionV2(BaseModel):
     biomarkers: List[Biomarker] = Field(default_factory=list)
 
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
-
-
-schema_v2 = PathologyExtractionV2
-
-
-class ContainerInfo(BaseModel):
-    label: Optional[str] = None
-    specimen: Optional[str] = None
-    is_lymph_node: Optional[bool] = None
-    anatomic_location: Optional[str] = None
-    diagnosis: Optional[str] = None
 
 
 class PathologyExtractionV3(BaseModel):
@@ -106,6 +103,7 @@ class PathologyExtractionV5(BaseModel):
     has_concurrent_malignancy: Optional[bool] = None
 
 
-# schema_v3 = PathologyExtractionV3
-# schema_v4 = PathologyExtractionV4
+schema_v2 = PathologyExtractionV2
+schema_v3 = PathologyExtractionV3
+schema_v4 = PathologyExtractionV4
 schema_v5 = PathologyExtractionV5
