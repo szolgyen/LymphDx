@@ -58,19 +58,19 @@ env-ollama:
 lockfiles: lock-hf lock-vllm lock-sglang lock-ollama
 
 lock-hf:
-	$(UV) pip compile requirements/hf/requirements.txt -o requirements/hf/lock.txt
+	$(UV) pip compile --python 3.12 requirements/hf/requirements.txt -o requirements/hf/lock.txt
 
 lock-vllm:
-	$(UV) pip compile requirements/vllm/requirements.txt -o requirements/vllm/lock.txt
+	$(UV) pip compile --python 3.12 requirements/vllm/requirements.txt -o requirements/vllm/lock.txt
 
 lock-sglang:
-	$(UV) pip compile requirements/sglang/requirements.txt -o requirements/sglang/lock.txt
+	$(UV) pip compile --python 3.12 requirements/sglang/requirements.txt -o requirements/sglang/lock.txt
 
 lock-ollama:
-	$(UV) pip compile requirements/ollama/requirements.txt -o requirements/ollama/lock.txt
+	$(UV) pip compile --python 3.12 requirements/ollama/requirements.txt -o requirements/ollama/lock.txt
 
 test-hf:
-	PYTHONPATH=$$(pwd)/src $(HF_PY) scripts/run_pipeline.py --backend hf --model google/medgemma-4b-it --decoder guidance --input-file configs/extraction/sample_reports.txt --diagnosis-terms-file configs/extraction/diagnosis_terms_v1.txt --log-level INFO
+    PYTHONPATH=$$(pwd)/src $(HF_PY) scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml --log-level DEBUG
 
 clean-envs:
 	rm -rf $(VENV_ROOT)
