@@ -3,7 +3,7 @@ import logging
 from pydantic import BaseModel
 
 from inference.adapters.base import BaseModelAdapter
-from inference.adapters.dummy import DummyAdapter
+
 from inference.adapters.hf import HFAdapter
 from inference.adapters.ollama import OllamaAdapter
 from inference.adapters.sglang import SGLangAdapter
@@ -13,7 +13,7 @@ from inference.adapters.vllm import VLLMAdapter
 logger = logging.getLogger(__name__)
 
 
-SUPPORTED_BACKENDS = {"dummy", "hf", "vllm", "sglang", "ollama"}
+SUPPORTED_BACKENDS = {"hf", "vllm", "sglang", "ollama"}
 SUPPORTED_DECODERS = {"none", "guidance", "outlines"}
 
 
@@ -23,9 +23,6 @@ def _resolve_decoder(backend: str, decoder: str) -> str:
         raise ValueError(
             f"Unsupported decoder '{decoder}'. Allowed: {sorted(SUPPORTED_DECODERS)}"
         )
-
-    if backend == "dummy" and decoder_name != "none":
-        raise ValueError("dummy backend only supports decoder='none'")
 
     return decoder_name
 
@@ -50,11 +47,6 @@ def create_adapter(
         model,
         resolved_decoder,
     )
-
-    if backend_name == "dummy":
-        return DummyAdapter(
-            allowed_diagnoses=allowed_diagnoses, schema_model=schema_model
-        )
 
     if backend_name == "hf":
         return HFAdapter(
