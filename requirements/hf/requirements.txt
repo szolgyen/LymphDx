@@ -14,3 +14,4 @@ scipy>=1.18
 sentence-transformers>=2.2
 torch>=2.6,<2.7
 transformers>=5.8
+matplotlib
