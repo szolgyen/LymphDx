@@ -154,6 +154,9 @@ def main() -> int:
             on_error=_persist_broken_output,
         )
         if reports and not extraction_outputs:
+            logger.error(
+                "Extraction produced zero valid outputs; see logs for per-report errors"
+            )
             raise RuntimeError(
                 "Extraction produced zero valid outputs; see logs for per-report errors"
             )

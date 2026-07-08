@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 
@@ -9,6 +10,8 @@ import torch
 import yaml
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from sentence_transformers.util import cos_sim
+
+logger = logging.getLogger(__name__)
 
 
 class OntologyMatcher:
@@ -28,16 +31,18 @@ class OntologyMatcher:
         self.use_prefilter = use_prefilter
         self.code_to_groups = code_to_groups or {}
 
-        print("Loading reranker...")
+        logger.info("Loading reranker model: %s", reranker_model)
         self.reranker = CrossEncoder(reranker_model)
 
         if self.use_prefilter:
-            print("Loading embedding model...")
+            logger.info("Loading embedding model: %s", embedding_model)
             self.embedder = SentenceTransformer(embedding_model)
 
             ontology_texts = [item["description"] for item in ontology]
 
-            print("Computing ontology embeddings...")
+            logger.info(
+                "Computing ontology embeddings for %d concepts", len(ontology_texts)
+            )
             self.ontology_embeddings = self.embedder.encode(
                 ontology_texts,
                 normalize_embeddings=True,
@@ -194,7 +199,7 @@ def load_ontology(excel_file):
 
     Multiple rows with same code are treated as synonyms.
     """
-
+    logger.info("Loading ontology from %s", excel_file)
     df = pd.read_excel(excel_file)
 
     required = {"Code", "Diagnosis"}
@@ -202,6 +207,7 @@ def load_ontology(excel_file):
     missing = required - set(df.columns)
 
     if missing:
+        logger.error("Missing columns in ontology file: %s", missing)
         raise ValueError(f"Missing columns in ontology file: {missing}")
 
     grouped = defaultdict(list)
@@ -251,7 +257,7 @@ def process_jsonl(
     matcher,
     top_n=5,
 ):
-
+    logger.info("Processing predictions from %s", input_file)
     n_cases = 0
 
     with open(input_file, "r") as fin, open(output_file, "w") as fout:
@@ -340,11 +346,13 @@ def load_config(config_path: str) -> dict:
     """Load configuration from YAML file."""
     config_file = Path(config_path)
     if not config_file.exists():
+        logger.error("Configuration file not found: %s", config_path)
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
     with open(config_file) as f:
         config = yaml.safe_load(f)
 
+    logger.info("Loaded configuration from %s", config_path)
     return config
 
 
@@ -364,14 +372,17 @@ def argparse_setup():
 
 
 def main():
-
+    logger.info("Starting ontology matching")
     config_path = argparse_setup()
 
     config = load_config(config_path)
 
     # Load ontology
+    logger.info("Loading ontology from config")
     ontology, code_to_groups = load_ontology(config["ontology_file"])
+    logger.info("Loaded %d ontology concepts", len(ontology))
 
+    logger.info("Initializing ontology matcher")
     matcher = OntologyMatcher(
         ontology=ontology,
         retrieval_k=config["matching"]["retrieval_k"],
@@ -380,9 +391,11 @@ def main():
         code_to_groups=code_to_groups,
     )
 
+    logger.info("Processing JSONL files")
     process_jsonl(
         config.get("input_file"),
         config.get("output_file"),
         matcher,
         top_n=config["matching"]["top_n"],
     )
+    logger.info("Ontology matching completed successfully")

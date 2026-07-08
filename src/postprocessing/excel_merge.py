@@ -4,12 +4,15 @@ from typing import Any
 from openpyxl.worksheet.table import Table
 import yaml
 import argparse
+import logging
 
 from postprocessing.predictions import (
     load_prediction_records,
     normalize_case_id,
     to_excel_value,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def iter_header_values(values: Iterable[Any]) -> list[str]:
@@ -197,23 +200,31 @@ def merge_predictions_into_validation_template(
     try:
         from openpyxl import load_workbook  # type: ignore[import-not-found]
     except ImportError as exc:
+        logger.error(
+            "Excel merge requires openpyxl. Install it with: pip install openpyxl"
+        )
         raise RuntimeError(
             "Excel merge requires openpyxl. Install it with: pip install openpyxl"
         ) from exc
 
     if not input_excel.exists():
+        logger.error("Template Excel file not found: %s", input_excel)
         raise FileNotFoundError(f"Template Excel file not found: {input_excel}")
     if not predictions_jsonl.exists():
+        logger.error("Predictions JSONL file not found: %s", predictions_jsonl)
         raise FileNotFoundError(
             f"Predictions JSONL file not found: {predictions_jsonl}"
         )
 
+    logger.info("Loading predictions from %s", predictions_jsonl)
     prediction_map, _ = load_prediction_records(predictions_jsonl)
 
+    logger.info("Loading template Excel from %s", input_excel)
     workbook = load_workbook(filename=input_excel)
     sheet = workbook["Results"]
 
     if sheet.max_row < 1:
+        logger.error("Excel file has no header row: %s", input_excel)
         raise ValueError(f"Excel file has no header row: {input_excel}")
 
     existing_headers = iter_header_values(
@@ -258,6 +269,11 @@ def merge_predictions_into_validation_template(
 
     for header in required_headers:
         if header not in existing_headers:
+            logger.error(
+                "Required header '%s' not found in template. Found: %s",
+                header,
+                existing_headers,
+            )
             raise ValueError(
                 f"Required header '{header}' not found in template. Found: {existing_headers}"
             )
@@ -734,16 +750,20 @@ def merge_predictions_into_validation_template(
 
     output_excel.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(output_excel)
+    logger.info("Wrote merged Excel to %s", output_excel)
 
 
 def load_config(config_path: str) -> dict:
     """Load configuration from YAML file."""
     config_file = Path(config_path)
     if not config_file.exists():
+        logger.error("Configuration file not found: %s", config_path)
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
     with open(config_file) as f:
         config = yaml.safe_load(f)
+
+    logger.info("Loaded configuration from %s", config_path)
 
     return config
 
@@ -775,5 +795,5 @@ def main() -> int:
         predictions_jsonl=Path(config.get("predictions_jsonl")),
         output_excel=Path(config.get("output_excel")),
     )
-    print(f"Wrote merged Excel: {config.get('output_excel')}")
+    logger.info("Wrote merged Excel: %s", config.get("output_excel"))
     return 0

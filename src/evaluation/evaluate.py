@@ -1,6 +1,7 @@
 import yaml
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.metrics import auc
+
+logger = logging.getLogger(__name__)
 
 
 ###############################################################################
@@ -19,11 +22,13 @@ def load_config(config_path: str) -> dict[str, Any]:
     """Load configuration from YAML file."""
     config_file = Path(config_path)
     if not config_file.exists():
+        logger.error("Configuration file not found: %s", config_path)
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
     with open(config_file) as f:
         config = yaml.safe_load(f)
 
+    logger.info("Loaded configuration from %s", config_path)
     return config
 
 
@@ -40,6 +45,7 @@ def load_jsonl(path: Path) -> list[dict[str, Any]]:
 
             records.append(json.loads(line))
 
+    logger.info("Loaded %d records from %s", len(records), path)
     return records
 
 
@@ -216,6 +222,7 @@ def str_to_bool(value: str) -> bool:
         return value
 
     if not isinstance(value, str):
+        logger.error("Expected a string or boolean, got %s", type(value))
         raise ValueError(f"Expected a string or boolean, got {type(value)}")
 
     value_lower = value.strip().lower()
@@ -225,6 +232,7 @@ def str_to_bool(value: str) -> bool:
     elif value_lower in {"false", "0", "no"}:
         return False
     else:
+        logger.error("Cannot convert string to boolean: %s", value)
         raise ValueError(f"Cannot convert string to boolean: {value}")
 
 
@@ -498,16 +506,22 @@ def run_evaluation(
     params: dict[str, Any],
     output_file_names: dict[str, str],
 ) -> None:
+    logger.info("Starting evaluation")
+    logger.info("Loading ground-truth from %s", gt_excel)
+    logger.info("Loading predictions from %s", predictions_jsonl)
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     gt = load_gt(gt_excel, params.get("GT_SHEET_NAME"))
     records = load_jsonl(predictions_jsonl)
     prediction_map = build_prediction_map(records)
 
+    logger.info("Building report-level DataFrame")
     # Build a DataFrame with one row per report.
     report_df = build_report_level_df(gt, prediction_map, params.get("TOP_K_VALUES"))
 
     # Compute aggregate metrics based on the report-level DataFrame.
+    logger.info("Computing metrics")
     report_metrics = compute_report_metrics(report_df)
     # Compute aggregate metrics for "hard" cases only.
     hard_df = hard_case_metrics(report_df)
@@ -526,6 +540,7 @@ def run_evaluation(
             )
         )
 
+    logger.info("Writing evaluation results to %s", output_dir)
     write_outputs(
         output_dir=output_dir,
         report_metrics=report_metrics,
@@ -536,6 +551,7 @@ def run_evaluation(
         threshold_df=threshold_df,
         output_file_names=output_file_names,
     )
+    logger.info("Evaluation completed successfully")
 
 
 def write_outputs(
@@ -548,6 +564,10 @@ def write_outputs(
     threshold_df: pd.DataFrame,
     output_file_names: dict[str, str],
 ) -> None:
+    logger.info(
+        "Writing report-level metrics to %s",
+        output_dir / output_file_names.get("OUTPUT_REPORT_LEVEL"),
+    )
     report_df.to_csv(
         output_dir / output_file_names.get("OUTPUT_REPORT_LEVEL"), index=False
     )
@@ -565,6 +585,7 @@ def write_outputs(
         threshold_df,
         output_dir / output_file_names.get("OUTPUT_THRESHOLD_PLOT"),
     )
+    logger.info("All evaluation outputs written to %s", output_dir)
 
     make_coverage_accuracy_plot(
         threshold_df,
@@ -581,6 +602,7 @@ def main() -> None:
 
     args = parse_args()
 
+    logger.info("Loading evaluation configuration from %s", args.config)
     config = load_config(args.config)
 
     params = config.get("parameters", {})
