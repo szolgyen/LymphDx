@@ -336,7 +336,7 @@ def process_jsonl(
     print(f"Finished. Processed {n_cases} cases.")
 
 
-def load_config(config_path="configs/ontology.yaml"):
+def load_config(config_path: str) -> dict:
     """Load configuration from YAML file."""
     config_file = Path(config_path)
     if not config_file.exists():
@@ -348,103 +348,41 @@ def load_config(config_path="configs/ontology.yaml"):
     return config
 
 
-def main():
-    # Load default config from YAML
-    config = load_config()
-
+def argparse_setup():
     parser = argparse.ArgumentParser(
         description="Match ontology terms in prediction JSONL using embeddings and reranking",
     )
-
-    # Optional arguments with config defaults
-    parser.add_argument(
-        "--jsonl-file",
-        required=False,
-        default=config.get("input_file"),
-        help="Input JSONL file with predictions",
-    )
-
-    parser.add_argument(
-        "--output-file",
-        required=False,
-        default=config.get("output_file"),
-        help="Output JSONL file with ontology matches",
-    )
-
-    # Optional overrides with config defaults
-    parser.add_argument(
-        "--ontology-file",
-        default=config["ontology_file"],
-        help="Ontology Excel file",
-    )
-
     parser.add_argument(
         "--config",
         default="configs/ontology.yaml",
         help="Path to ontology configuration YAML file",
     )
 
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=config["matching"]["acceptance_threshold"],
-        help="Acceptance threshold for matches",
-    )
-
-    parser.add_argument(
-        "--retrieval-k",
-        type=int,
-        default=config["matching"]["retrieval_k"],
-        help="Number of candidates to retrieve before reranking",
-    )
-
-    parser.add_argument(
-        "--use-prefilter",
-        action="store_true",
-        default=config["matching"]["use_prefilter"],
-        help="Use embedding retrieval before reranking",
-    )
-
-    parser.add_argument(
-        "--no-prefilter",
-        action="store_false",
-        dest="use_prefilter",
-        help="Disable embedding retrieval (skip to reranking)",
-    )
-
-    parser.add_argument(
-        "--top-n",
-        type=int,
-        default=config["matching"]["top_n"],
-        help="Number of top matches to return",
-    )
-
     args = parser.parse_args()
 
-    # Validate required arguments
-    if not args.jsonl_file:
-        parser.error("--jsonl-file is required or must be set in config file")
-    if not args.output_file:
-        parser.error("--output-file is required or must be set in config file")
+    return args.config
+
+
+def main():
+
+    config_path = argparse_setup()
+
+    config = load_config(config_path)
 
     # Load ontology
-    ontology, code_to_groups = load_ontology(args.ontology_file)
+    ontology, code_to_groups = load_ontology(config["ontology_file"])
 
     matcher = OntologyMatcher(
         ontology=ontology,
-        retrieval_k=args.retrieval_k,
-        acceptance_threshold=args.threshold,
-        use_prefilter=args.use_prefilter,
+        retrieval_k=config["matching"]["retrieval_k"],
+        acceptance_threshold=config["matching"]["acceptance_threshold"],
+        use_prefilter=config["matching"]["use_prefilter"],
         code_to_groups=code_to_groups,
     )
 
     process_jsonl(
-        args.jsonl_file,
-        args.output_file,
+        config.get("input_file"),
+        config.get("output_file"),
         matcher,
-        top_n=args.top_n,
+        top_n=config["matching"]["top_n"],
     )
-
-
-if __name__ == "__main__":
-    main()
