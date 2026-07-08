@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 from openpyxl.worksheet.table import Table
 import yaml
+import argparse
 
 from postprocessing.predictions import (
     load_prediction_records,
@@ -735,7 +736,7 @@ def merge_predictions_into_validation_template(
     workbook.save(output_excel)
 
 
-def load_config(config_path: str = "configs/excel_merge.yaml") -> dict:
+def load_config(config_path: str) -> dict:
     """Load configuration from YAML file."""
     config_file = Path(config_path)
     if not config_file.exists():
@@ -747,10 +748,27 @@ def load_config(config_path: str = "configs/excel_merge.yaml") -> dict:
     return config
 
 
+def argparse_setup():
+    parser = argparse.ArgumentParser(
+        description="Merge predictions into validation template",
+    )
+    parser.add_argument(
+        "--config",
+        default="configs/excel_merge.yaml",
+        help="Path to Excel merge configuration YAML file",
+    )
+
+    args = parser.parse_args()
+
+    return args.config
+
+
 def main() -> int:
     """Main entry point for Excel merge with config loading."""
-    # Load default config from YAML
-    config = load_config()
+
+    config_path = argparse_setup()
+
+    config = load_config(config_path)
 
     merge_predictions_into_validation_template(
         input_excel=Path(config.get("input_excel")),
@@ -759,7 +777,3 @@ def main() -> int:
     )
     print(f"Wrote merged Excel: {config.get('output_excel')}")
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
