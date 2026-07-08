@@ -218,6 +218,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Outputs and extraction directories
+# Inputs and Outputs
 outputs
-extraction
+inputs
