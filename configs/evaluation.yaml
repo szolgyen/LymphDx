@@ -1,0 +1,26 @@
+# Evaluation configuration
+# Use this file with:
+#   .venvs/report-llm-hf/bin/python scripts/evaluation.py
+
+# Paths
+input_excel_file: ...
+input_jsonl_file: ...
+output_folder: ...
+
+# Parameters
+parameters:
+  TOP_K_VALUES: [1, 3, 5]
+  RARE_DIAGNOSIS_THRESHOLD: 2
+  THRESHOLD_STEPS: 500
+  GT_SHEET_NAME: "Results"
+
+# Output files
+output_files:
+  OUTPUT_SUMMARY: "evaluation_summary.json"
+  OUTPUT_REPORT_LEVEL: "report_level_metrics.csv"
+  OUTPUT_HARD_CASES: "hard_case_metrics.csv"
+  OUTPUT_ERROR_ANALYSIS: "error_analysis.json"
+  OUTPUT_RARE_DIAGNOSIS: "rare_diagnosis_metrics.csv"
+  OUTPUT_THRESHOLDS: "threshold_metrics.csv"
+  OUTPUT_THRESHOLD_PLOT: "threshold_accuracy_coverage.png"
+  OUTPUT_COVERAGE_ACCURACY_PLOT: "accuracy_coverage_plot.png"

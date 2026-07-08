@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--config",
-        default="configs/pipeline/run_pipeline.yaml",
+        default="configs/run_pipeline.yaml",
         help="Path to YAML config file containing all pipeline options",
     )
     return parser.parse_args()

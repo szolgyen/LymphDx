@@ -1,9 +1,13 @@
 # Ontology matching configuration
+# Use this file with:
+#   .venvs/report-llm-hf/bin/python scripts/ontology.py
+
+# Ontology matching configuration
 
 # File paths
-input_file: outputs/predictions/none/predictions.jsonl
-output_file: outputs/excel/ontology_matched.jsonl
-ontology_file: configs/extraction/LN_Dx_dictionary_codes_20260630.xlsx
+input_file: ...
+output_file: ...
+ontology_file: ...
 
 # Models
 models:

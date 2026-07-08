@@ -336,7 +336,7 @@ def process_jsonl(
     print(f"Finished. Processed {n_cases} cases.")
 
 
-def load_config(config_path="configs/ontology/ontology.yaml"):
+def load_config(config_path="configs/ontology.yaml"):
     """Load configuration from YAML file."""
     config_file = Path(config_path)
     if not config_file.exists():
@@ -380,7 +380,7 @@ def main():
 
     parser.add_argument(
         "--config",
-        default="configs/ontology/ontology.yaml",
+        default="configs/ontology.yaml",
         help="Path to ontology configuration YAML file",
     )
 

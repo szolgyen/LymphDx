@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--config",
-        default="configs/evaluation/evaluation.yaml",
+        default="configs/evaluation.yaml",
         help="Path to evaluation configuration file",
     )
 

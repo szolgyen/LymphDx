@@ -735,7 +735,7 @@ def merge_predictions_into_validation_template(
     workbook.save(output_excel)
 
 
-def load_config(config_path: str = "configs/excel/excel_merge.yaml") -> dict:
+def load_config(config_path: str = "configs/excel_merge.yaml") -> dict:
     """Load configuration from YAML file."""
     config_file = Path(config_path)
     if not config_file.exists():
