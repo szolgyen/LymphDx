@@ -2,7 +2,7 @@
 
 ## Goal
 
-Extract structured pathology JSON objects from free-text reports with strict schema validation and diagnosis constraints.
+Extract structured pathology JSON objects from free-text reports with strict schema validation.
 
 ## Top-Level Design
 
@@ -25,10 +25,11 @@ The framework is organized by processing responsibilities:
 
 ## Core Principles
 
-- Strict schema-first extraction.
-- Diagnosis constraints are enforced via constrained decoding, not mapped post hoc.
-- Adapter runtime concerns are separated from decoder strategy concerns.
-- Placeholder scaffolding is explicit for unimplemented backends/decoders (currently `vllm`, `sglang`, `ollama` adapters and `sglang` decoder).
+- Schema-first extraction with enforced JSON validity via constrained decoding.
+- Flexible diagnosis extraction supporting unconstrained (`none`) and constrained (`guidance`, `outlines`) decoding strategies.
+- Post hoc ontology mapping support for unconstrained diagnosis outputs.
+- Clear separation between adapter runtime logic and decoder strategy.
+- Explicit placeholders for unimplemented backends/decoders (`vllm`, `sglang`, `ollama` adapters; `sglang` decoder).
 
 ## Parallel Inference Structure
 

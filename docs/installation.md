@@ -17,7 +17,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## 1) Clone and enter the repo
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/cooperlab/heme-llm.git
 cd heme-llm
 ```
 
@@ -44,8 +44,10 @@ Expected environments:
 
 ## 3) Run a quick HF pipeline smoke test
 
+Use a single GPU on a multi-GPU server:
+
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
+CUDA_VISIBLE_DEVICES=0 .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/run_pipeline.yaml
 ```
 
 ## Useful Make Targets

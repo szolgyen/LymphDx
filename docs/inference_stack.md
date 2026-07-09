@@ -45,6 +45,7 @@ All backends support:
 
 - Uses normal model generation.
 - Relies on prompt formatting and downstream validation.
+- Builds a strict JSON schema using Guidance.
 
 ### `decoder=guidance`
 
@@ -55,7 +56,7 @@ All backends support:
 ### `decoder=outlines`
 
 - Uses Outlines constrained decoding path.
-- Strict schema-constrained generation.
+- Builds a strict JSON schema including diagnosis enum constraints.
 - Supports HF and vLLM backends.
 
 ## Validation Contract

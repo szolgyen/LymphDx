@@ -2,15 +2,26 @@
 
 ## Common Runtime Commands
 
-Edit `configs/pipeline/run_pipeline.yaml` to set backend, model, decoder, and file paths.
+Edit `configs/run_pipeline.yaml` to set backend, model, decoder, and file paths.
 
 Then run:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
+CUDA_VISIBLE_DEVICES=0 .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py
 ```
 
 Example configurations:
+
+**HF + none:**
+
+```yaml
+backend: hf
+model: google/medgemma-4b-it
+decoder: none
+input_file: inputs/hempath_reports.xlsx
+diagnosis_terms_file:
+log_level: INFO
+```
 
 **HF + Guidance:**
 
@@ -18,19 +29,8 @@ Example configurations:
 backend: hf
 model: google/medgemma-4b-it
 decoder: guidance
-input_file: configs/extraction/sample_reports.txt
-diagnosis_terms_file: configs/extraction/diagnosis_terms_v1.txt
-log_level: INFO
-```
-
-**HF + Outlines:**
-
-```yaml
-backend: hf
-model: google/medgemma-4b-it
-decoder: outlines
-input_file: configs/extraction/sample_reports.txt
-diagnosis_terms_file: configs/extraction/diagnosis_terms_v1.txt
+input_file: inputs/hempath_reports.xlsx
+diagnosis_terms_file: inputs/LN_Dx_dictionary_codes_20260630.xlsx
 log_level: INFO
 ```
 
@@ -38,17 +38,16 @@ log_level: INFO
 
 Observed from local runs in this repository (May 2026):
 
-| Model | `guidance` | `outlines` | Notes |
-|---|---|---|---|
-| `google/medgemma-4b-it` | Works | Works | Successful end-to-end extraction run observed. |
-| `google/medgemma-1.5-4b-it` | Works | Works | `decoder=none` failed (non-JSON outputs), constrained decoders worked. |
-| `aaditya/Llama3-OpenBioLLM-8B` | Works | Works | Successful constrained extraction observed for both decoders. |
+| Model | `guidance` | `outlines` |
+|---|---|---|
+| `google/medgemma-4b-it` | Works | Works |
+| `google/medgemma-1.5-4b-it` | Works | Works |
+| `aaditya/Llama3-OpenBioLLM-8B` | Works | Works |
 
-Notes:
 
-- This is an observed compatibility snapshot, not a strict support matrix.
-- Results can vary by GPU topology, CUDA driver, and dependency versions.
-- For HF backend runs, pinning to a single GPU (`CUDA_VISIBLE_DEVICES=0`) is the default documented path.
+> - This is an observed compatibility snapshot, not a strict support matrix.
+> - Results can vary by GPU topology, CUDA driver, and dependency versions.
+> - For HF backend runs, pinning to a single GPU (`CUDA_VISIBLE_DEVICES=0`) is the default documented path.
 
 ## Observed Backend Compatibility Issues (May 2026)
 
@@ -80,7 +79,7 @@ Operational recommendation:
 ## Logging
 
 - Console + file logging are enabled.
-- Per-run log files: `outputs/logs/run_pipeline_YYYYMMDD_HHMMSS.log`
+- Per-run log files: `outputs/YYYYMMDD_HHMMSS/run_pipeline_YYYYMMDD_HHMMSS.log`
 - Guidance mode logs start/finish timing per report.
 
 ## Environment Reproducibility
