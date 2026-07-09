@@ -97,6 +97,64 @@ def get_primary_top1(record: dict[str, Any]) -> dict[str, Any] | None:
     return get_valid_primary_diagnoses(record).get("top_1")
 
 
+def get_primary_top3(record: dict[str, Any], group: str) -> list[str] | None:
+    """Return a list of valid primary diagnosis groups for the top-3 predictions."""
+    if group == "group_1":
+        return [
+            record.get("valid_primary_diagnoses", {})
+            .get(f"top_{k}", {})
+            .get("valid_primary_diagnosis_group_1", {})
+            for k in range(1, 4)
+        ]
+
+    if group == "group_2":
+        return [
+            record.get("valid_primary_diagnoses", {})
+            .get(f"top_{i}", {})
+            .get("valid_primary_diagnosis_group_2", {})
+            for i in range(1, 4)
+        ]
+
+    if group == "group_3":
+        return [
+            record.get("valid_primary_diagnoses", {})
+            .get(f"top_{i}", {})
+            .get("valid_primary_diagnosis_group_3", {})
+            for i in range(1, 4)
+        ]
+
+    return None
+
+
+def get_primary_top5(record: dict[str, Any], group: str) -> list[str] | None:
+    """Return a list of valid primary diagnosis groups for the top-5 predictions."""
+    if group == "group_1":
+        return [
+            record.get("valid_primary_diagnoses", {})
+            .get(f"top_{i}", {})
+            .get("valid_primary_diagnosis_group_1", {})
+            for i in range(1, 6)
+        ]
+
+    if group == "group_2":
+        return [
+            record.get("valid_primary_diagnoses", {})
+            .get(f"top_{i}", {})
+            .get("valid_primary_diagnosis_group_2", {})
+            for i in range(1, 6)
+        ]
+
+    if group == "group_3":
+        return [
+            record.get("valid_primary_diagnoses", {})
+            .get(f"top_{i}", {})
+            .get("valid_primary_diagnosis_group_3", {})
+            for i in range(1, 6)
+        ]
+
+    return None
+
+
 def get_primary_top_k_codes(record: dict[str, Any], k: int) -> list[int]:
     """Return a list of valid primary diagnosis codes for the top-k predictions."""
     preds = get_valid_primary_diagnoses(record)
@@ -135,11 +193,28 @@ def build_report_level_df(
 
         gt_row = gt.loc[gt["Id"] == case_id].iloc[0]
         top1 = get_primary_top1(record)
-
+        top3 = {
+            "valid_primary_diagnosis_group_1": get_primary_top3(record, "group_1"),
+            "valid_primary_diagnosis_group_2": get_primary_top3(record, "group_2"),
+            "valid_primary_diagnosis_group_3": get_primary_top3(record, "group_3"),
+        }
+        top5 = {
+            "valid_primary_diagnosis_group_1": get_primary_top5(record, "group_1"),
+            "valid_primary_diagnosis_group_2": get_primary_top5(record, "group_2"),
+            "valid_primary_diagnosis_group_3": get_primary_top5(record, "group_3"),
+        }
         if top1 is None:
             continue
 
-        rows.append(build_report_row(case_id, gt_row, record, top1, top_k_values))
+        if top3 is None:
+            continue
+
+        if top5 is None:
+            continue
+
+        rows.append(
+            build_report_row(case_id, gt_row, record, top1, top3, top5, top_k_values)
+        )
 
     return pd.DataFrame(rows)
 
@@ -149,6 +224,8 @@ def build_report_row(
     gt_row: pd.Series,
     record: dict[str, Any],
     top1: dict[str, Any],
+    top3: dict[str, Any],
+    top5: dict[str, Any],
     top_k_values: list[int],
 ) -> dict[str, Any]:
     """Build a single row for the report-level DataFrame."""
@@ -165,6 +242,14 @@ def build_report_row(
     pred_group1 = top1.get("valid_primary_diagnosis_group_1")
     pred_group2 = top1.get("valid_primary_diagnosis_group_2")
     pred_group3 = top1.get("valid_primary_diagnosis_group_3")
+
+    top3_group1 = top3.get("valid_primary_diagnosis_group_1")
+    top3_group2 = top3.get("valid_primary_diagnosis_group_2")
+    top3_group3 = top3.get("valid_primary_diagnosis_group_3")
+
+    top5_group1 = top5.get("valid_primary_diagnosis_group_1")
+    top5_group2 = top5.get("valid_primary_diagnosis_group_2")
+    top5_group3 = top5.get("valid_primary_diagnosis_group_3")
 
     gt_has_differential = str_to_bool(gt_row["GT Has Differential Diagnosis"])
     gt_is_definitive = str_to_bool(gt_row["GT Is Definitive"])
@@ -200,9 +285,15 @@ def build_report_row(
         "top1_correct": gt_code in topk_codes[1],
         "top3_correct": gt_code in topk_codes[3],
         "top5_correct": gt_code in topk_codes[5],
-        "group1_correct": gt_group1 == pred_group1,
-        "group2_correct": gt_group2 == pred_group2,
-        "group3_correct": gt_group3 == pred_group3,
+        "top1_group1_correct": gt_group1 == pred_group1,
+        "top1_group2_correct": gt_group2 == pred_group2,
+        "top1_group3_correct": gt_group3 == pred_group3,
+        "top3_group1_correct": gt_group1 in top3_group1,
+        "top3_group2_correct": gt_group2 in top3_group2,
+        "top3_group3_correct": gt_group3 in top3_group3,
+        "top5_group1_correct": gt_group1 in top5_group1,
+        "top5_group2_correct": gt_group2 in top5_group2,
+        "top5_group3_correct": gt_group3 in top5_group3,
         "has_differential_correct": gt_has_differential == pred_has_differential,
         "is_definitive_correct": gt_is_definitive == pred_is_definitive,
         "has_prior_malignancy_correct": gt_has_prior_malignancy
@@ -253,9 +344,15 @@ def summarize_accuracy(df: pd.DataFrame) -> dict[str, float]:
         "top1_accuracy": accuracy(df["top1_correct"]),
         "top3_accuracy": accuracy(df["top3_correct"]),
         "top5_accuracy": accuracy(df["top5_correct"]),
-        "group1_accuracy": accuracy(df["group1_correct"]),
-        "group2_accuracy": accuracy(df["group2_correct"]),
-        "group3_accuracy": accuracy(df["group3_correct"]),
+        "top1_group1_accuracy": accuracy(df["top1_group1_correct"]),
+        "top1_group2_accuracy": accuracy(df["top1_group2_correct"]),
+        "top1_group3_accuracy": accuracy(df["top1_group3_correct"]),
+        "top3_group1_accuracy": accuracy(df["top3_group1_correct"]),
+        "top3_group2_accuracy": accuracy(df["top3_group2_correct"]),
+        "top3_group3_accuracy": accuracy(df["top3_group3_correct"]),
+        "top5_group1_accuracy": accuracy(df["top5_group1_correct"]),
+        "top5_group2_accuracy": accuracy(df["top5_group2_correct"]),
+        "top5_group3_accuracy": accuracy(df["top5_group3_correct"]),
         "has_differential_accuracy": accuracy(df["has_differential_correct"]),
         "is_definitive_accuracy": accuracy(df["is_definitive_correct"]),
         "has_prior_malignancy_accuracy": accuracy(df["has_prior_malignancy_correct"]),
