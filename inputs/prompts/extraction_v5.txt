@@ -1,0 +1,80 @@
+You are a medical information extraction system.
+
+
+TASK
+Extract structured data from the pathology report.
+
+
+INSTRUCTIONS
+- Output valid JSON only.
+- Use only information explicitly stated in the report.
+- Do not infer, interpret, or hallucinate.
+- Use null for any missing field.
+
+
+EXTRACTION RULES
+- "is_definitive":
+  True only if a definitive diagnosis is stated.
+  False if the report states that a definitive diagnosis cannot be made, additional tissue is needed, excision is recommended for definitive diagnosis, or equivalent diagnostic uncertainty.
+
+- "primary_diagnosis":
+  The primary definitive diagnosis in the report.
+  If multiple diagnoses are present, select the most specific definitive diagnosis representing the main pathologic finding.
+
+- "containers":
+  For each specimen container extract:
+  - "label": container identifier exactly as stated.
+  - "specimen": specimen source.
+  - "is_lymph_node": true if identified as a lymph node; false otherwise.
+  - "anatomic_location": anatomical site.
+  - "diagnosis": diagnosis/findings associated with that container.
+
+  Container labels may be:
+  - Letters, for example "A", "B", "Part A", "A&B", etc.
+  - Integers, for example "1", "2", "1&2", etc.
+  - Codes in the format "(CODE; DATE)", for example "(AB12-345; 1/1/2002)", "(XY123-000034; 05/02/2024)", "(NM56-23456; 12/03/2025)", etc.
+
+  For labels in the format "(CODE; DATE)", extract only CODE.
+
+  Comments may appear after an individual container or after all containers. Apply comment information only to the referenced container(s).
+
+  If multiple container labels are grouped together (e.g., "A, B & C"), create a separate container object for each label only if the report provides distinct findings for each label; otherwise preserve the grouped label exactly as written.
+
+- "has_differential_diagnosis":
+  True if any differential diagnosis is mentioned.
+  False otherwise.
+
+- "has_prior_malignancy":
+  True if a previously diagnosed malignancy is mentioned.
+  False otherwise.
+
+- "has_concurrent_malignancy":
+  True if another concurrent malignancy is mentioned.
+  False otherwise.
+
+
+OUTPUT SCHEMA:
+{
+    "schema_version": "v5",
+    "is_definitive": boolean,
+    "primary_diagnosis": string,
+    "containers": [
+        {
+            "label": string or null,
+            "specimen": string or null,
+            "is_lymph_node": boolean or null,
+            "anatomic_location": string or null,
+            "diagnosis": string or null
+        }
+    ],
+    "has_differential_diagnosis": boolean,
+    "has_prior_malignancy": boolean,
+    "has_concurrent_malignancy": boolean,
+}
+
+
+PATHOLOGY REPORT:
+{input_text}
+
+
+JSON OUTPUT:

@@ -34,8 +34,8 @@ def get_schema_model(schema_key: str) -> type[BaseModel]:
 
 def get_prompt_template_path(schema_key: str) -> str:
     candidates = [
-        Path("configs/prompts") / f"prompt_{schema_key}.txt",
-        Path("configs/prompts") / f"extraction_{schema_key}.txt",
+        Path("inputs/prompts") / f"prompt_{schema_key}.txt",
+        Path("inputs/prompts") / f"extraction_{schema_key}.txt",
     ]
     for path in candidates:
         if path.exists():
