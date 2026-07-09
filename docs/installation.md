@@ -1,6 +1,6 @@
 # Installation Guide (First-Time Setup)
 
-This guide is for a fresh clone of ReportLLM.
+This guide is for a fresh clone of Hematopathology LLM.
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 git clone <your-repo-url>
-cd ReportLLM
+cd heme-llm
 ```
 
 ## 2) Bootstrap all backend environments
@@ -37,15 +37,15 @@ What this does:
 
 Expected environments:
 
-- `.venvs/report-llm-hf`
-- `.venvs/report-llm-vllm`
-- `.venvs/report-llm-sglang`
-- `.venvs/report-llm-ollama`
+- `.venvs/heme-llm-hf`
+- `.venvs/heme-llm-vllm`
+- `.venvs/heme-llm-sglang`
+- `.venvs/heme-llm-ollama`
 
 ## 3) Run a quick HF pipeline smoke test
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
+CUDA_VISIBLE_DEVICES=0 .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
 
 ## Useful Make Targets

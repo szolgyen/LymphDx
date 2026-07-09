@@ -1,5 +1,5 @@
 [project]
-name = "report-llm"
+name = "heme-llm"
 version = "0.1.0"
 description = "Structured pathology report extraction with modular LLM backends"
 requires-python = ">=3.12"
@@ -47,14 +47,14 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.report-llm.backends]
+[tool.heme-llm.backends]
 # Backend-specific dependency entrypoints.
 hf = "requirements/hf/requirements.txt"
 vllm = "requirements/vllm/requirements.txt"
 sglang = "requirements/sglang/requirements.txt"
 ollama = "requirements/ollama/requirements.txt"
 
-[tool.report-llm.locks]
+[tool.heme-llm.locks]
 # uv.lock is the project lock for pyproject dependencies.
 project = "uv.lock"
 # Backend lock files are generated from the backend requirements files.

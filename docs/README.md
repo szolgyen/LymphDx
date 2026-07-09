@@ -1,4 +1,4 @@
-# ReportLLM Documentation
+# Hematopathology LLM Documentation
 
 This folder contains structured documentation for the current framework.
 
@@ -20,13 +20,15 @@ This folder contains structured documentation for the current framework.
 Edit `configs/pipeline/run_pipeline.yaml` with your settings, then run:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
+CUDA_VISIBLE_DEVICES=0 .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
 
 Core outputs:
 
-- `outputs/predictions/`
-- `outputs/logs/run_pipeline_*.log`
+- `outputs/YYYYMMDD_HHMMSS/`
+- `outputs/predictions_YYYYMMDD_HHMMSS.jsonl`
+- `outputs/predictions_broken_YYYYMMDD_HHMMSS.jsonl`
+- `outputs/YYYYMMDD_HHMMSS/run_pipeline_YYYYMMDD_HHMMSS.log`
 
 ## Current State (Short)
 

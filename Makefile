@@ -3,10 +3,10 @@ SHELL := /bin/bash
 UV ?= uv
 VENV_ROOT ?= .venvs
 
-HF_ENV := $(VENV_ROOT)/report-llm-hf
-VLLM_ENV := $(VENV_ROOT)/report-llm-vllm
-SGLANG_ENV := $(VENV_ROOT)/report-llm-sglang
-OLLAMA_ENV := $(VENV_ROOT)/report-llm-ollama
+HF_ENV := $(VENV_ROOT)/heme-llm-hf
+VLLM_ENV := $(VENV_ROOT)/heme-llm-vllm
+SGLANG_ENV := $(VENV_ROOT)/heme-llm-sglang
+OLLAMA_ENV := $(VENV_ROOT)/heme-llm-ollama
 
 HF_PY := $(abspath $(HF_ENV))/bin/python
 

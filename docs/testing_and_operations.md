@@ -7,7 +7,7 @@ Edit `configs/pipeline/run_pipeline.yaml` to set backend, model, decoder, and fi
 Then run:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 .venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
+CUDA_VISIBLE_DEVICES=0 .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
 
 Example configurations:

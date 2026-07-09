@@ -1,4 +1,4 @@
-# HF backend dependencies for ReportLLM
+# HF backend dependencies for Hematopathology LLM pipeline
 -r ../base.txt
 accelerate>=1.13
 gpustat>=1.1.1

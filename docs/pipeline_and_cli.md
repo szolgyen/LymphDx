@@ -24,13 +24,13 @@ Main configuration keys:
 Run the pipeline:
 
 ```sh
-.venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
+.venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml
 ```
 
 Optional override (uses YAML default for unspecified options):
 
 ```sh
-.venvs/report-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml --log-level DEBUG
+.venvs/heme-llm-hf/bin/python scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml --log-level DEBUG
 ```
 
 See [installation.md](installation.md) for first-time setup.
