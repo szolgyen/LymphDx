@@ -103,7 +103,25 @@ class PathologyExtractionV5(BaseModel):
     has_concurrent_malignancy: Optional[bool] = None
 
 
+class PathologyExtractionV6(BaseModel):
+    schema_version: Literal["v6"] = Field(default="v6", frozen=True)
+
+    case_id: Optional[int] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-decoder-exclude": True},
+    )
+
+    primary_diagnosis: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-diagnosis-constrained": True},
+    )
+    diagnosis_group_1: str = None
+    diagnosis_group_2: str = None
+    diagnosis_group_3: str = None
+
+
 schema_v2 = PathologyExtractionV2
 schema_v3 = PathologyExtractionV3
 schema_v4 = PathologyExtractionV4
 schema_v5 = PathologyExtractionV5
+schema_v6 = PathologyExtractionV6

@@ -1,0 +1,31 @@
+You are a medical information extraction system.
+
+
+TASK
+Extract structured data from the pathology report.
+
+
+INSTRUCTIONS
+Exactly follow these instructions:
+1. Read and understand the pathology report.
+2. Find the single most specific definitive diagnosis explicitly stated in the report.
+3. Based on this diagnosis, map the diagnosis into three independent diagnosis groups:
+   - "diagnosis_group_1": select the closest matching category from this controlled vocabulary: ["T cell lymphoma", "Large B cell lymphoma", "Chronic lymphocytic leukemia/Small lymphocytic lymphoma", "Marginal zone lymphoma", "Other non-Hodgkin lymphoma", "Other B cell lymphoma", "Mantle cell lymphoma", "Hodgkin lymphoma", "Follicular lymphoma", "Precursor lesion", "Blastic", "Myeloid", "Plasma cell neoplasm", "Deposits", "Stromal", "Histiocytic/dendritic", "Metastatic", "Vascular", "Reactive", "Necrosis"]
+   - "diagnosis_group_2": select the closest matching category from this controlled vocabulary: ["Mature T/NK cell", "Large B cell", "Mature B cell", "Immunodeficiency-associated lymphoproliferative disorders", "Hodgkin lymphoma or Mature B cell", "Hodgkin lymphoma", "Other lymphoid neoplasm", "Histiocytic/dendritic cell neoplasms", "Precursor B-cell", "Precursor T-cell", "Myeloid Neoplasm", "Plasma cell neoplasm", "Monoclonal Immunoglobulin deposition", "Stromal Neoplasms", "Metastatic", "Vascular Neoplasms", "Tumor-like lesions with T-cell predominance", "Reactive", "Inflammatory", "Tumor-like lesions with B cell predominance", "Tumor-like lesions with B cell", "Necrosis"]
+   - "diagnosis_group_3": select the closest matching category from this controlled vocabulary: ["Malignant/neoplastic", "Miscellaneous", "Vascular/hamartomatous", "Reactive/Inflammatory", "Infectious Lymphadenitis"]
+4. Make sure that you select exactly one category from each respective vocabulary list.
+5. Return the specific definitive diagnosis as primary_diagnosis together with diagnosis_group_1, diagnosis_group_2, and diagnosis_group_3 in a structured JSON object in the following schema:
+  {
+      "schema_version": "v6",
+      "primary_diagnosis": string,
+      "diagnosis_group_1": string,
+      "diagnosis_group_2": string,
+      "diagnosis_group_3": string
+  }
+
+
+PATHOLOGY REPORT:
+{input_text}
+
+
+JSON OUTPUT:
