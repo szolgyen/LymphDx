@@ -501,7 +501,7 @@ def threshold_analysis(
         rows.append(
             {
                 "threshold": threshold,
-                "coverage": len(subset) / len(df["pred_score"].dropna()),
+                "coverage": len(subset) / len(df),
                 "accuracy_top1": subset["top1_correct"].mean()
                 if len(subset)
                 else np.nan,
@@ -617,6 +617,7 @@ def run_evaluation(
     output_dir: Path,
     params: dict[str, Any],
     output_file_names: dict[str, str],
+    exclude_failed: bool = True,
 ) -> None:
     logger.info("Starting evaluation")
     logger.info("Loading ground-truth from %s", gt_excel)
@@ -631,6 +632,9 @@ def run_evaluation(
     logger.info("Building report-level DataFrame")
     # Build a DataFrame with one row per report.
     report_df = build_report_level_df(gt, prediction_map, params.get("TOP_K_VALUES"))
+
+    if exclude_failed:
+        report_df = report_df.dropna(subset=["pred_score"])
 
     # Compute aggregate metrics based on the report-level DataFrame.
     logger.info("Computing metrics")
@@ -726,4 +730,5 @@ def main() -> None:
         output_dir=Path(config["output_folder"]),
         params=params,
         output_file_names=output_file_names,
+        exclude_failed=params.get("EXCLUDE_FAILED", True),
     )
