@@ -366,6 +366,21 @@ def compute_report_metrics(df: pd.DataFrame) -> dict[str, float]:
     return {
         "n_cases": len(df),
         **summarize_accuracy(df),
+        **stratified_top1_accuracy(df),
+    }
+
+
+def stratified_top1_accuracy(df: pd.DataFrame) -> dict[str, float]:
+    return {
+        "top1_accuracy_given_group1_correct": accuracy(
+            df.loc[df["top1_group1_correct"], "top1_correct"]
+        ),
+        "top1_accuracy_given_group2_correct": accuracy(
+            df.loc[df["top1_group2_correct"], "top1_correct"]
+        ),
+        "top1_accuracy_given_group3_correct": accuracy(
+            df.loc[df["top1_group3_correct"], "top1_correct"]
+        ),
     }
 
 
