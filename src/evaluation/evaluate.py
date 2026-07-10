@@ -501,7 +501,7 @@ def threshold_analysis(
         rows.append(
             {
                 "threshold": threshold,
-                "coverage": len(subset) / len(df),
+                "coverage": len(subset) / len(df["pred_score"].dropna()),
                 "accuracy_top1": subset["top1_correct"].mean()
                 if len(subset)
                 else np.nan,
@@ -575,29 +575,29 @@ def make_coverage_accuracy_plot(threshold_df: pd.DataFrame, output_path: Path) -
     fig, ax = plt.subplots(figsize=(8, 6))
 
     ax.plot(
-        threshold_df["coverage"],
         threshold_df["accuracy_top1"],
+        threshold_df["coverage"],
         color="blue",
         label="Top-1 Accuracy",
     )
     ax.plot(
-        threshold_df["coverage"],
         threshold_df["accuracy_top3"],
+        threshold_df["coverage"],
         linestyle="--",
         color="blue",
         label="Top-3 Accuracy",
     )
     ax.plot(
-        threshold_df["coverage"],
         threshold_df["accuracy_top5"],
+        threshold_df["coverage"],
         linestyle=":",
         color="blue",
         label="Top-5 Accuracy",
     )
-    ax.set_xlabel("Coverage")
-    ax.set_ylabel("Accuracy")
-    ax.set_xlim(-0.01, 1.01)
-    ax.set_ylim(0.65, 1.05)
+    ax.set_xlabel("Accuracy")
+    ax.set_ylabel("Coverage")
+    ax.set_xlim(0.7, 1.01)
+    ax.set_ylim(0.0, 1.01)
 
     ax.legend(loc="lower left")
 
