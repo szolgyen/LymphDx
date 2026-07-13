@@ -1,6 +1,6 @@
 # Evaluation configuration
 # Use this file with:
-#   .venvs/report-llm-hf/bin/python scripts/evaluation.py
+#   .venvs/heme-llm-hf/bin/python scripts/evaluation.py
 
 # Paths
 input_excel_file: ...
@@ -13,6 +13,7 @@ parameters:
   RARE_DIAGNOSIS_THRESHOLD: 2
   THRESHOLD_STEPS: 500
   GT_SHEET_NAME: "Results"
+  EXCLUDE_FAILED: true
 
 # Output files
 output_files:

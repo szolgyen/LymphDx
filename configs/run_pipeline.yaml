@@ -1,6 +1,6 @@
-# ReportLLM pipeline configuration
+# Hematopathology LLM pipeline configuration
 # Use this file with:
-#   .venvs/report-llm-hf/bin/python scripts/run_pipeline.py
+#   .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py
 
 # Inference backend: hf | *vllm | *sglang | *ollama
 backend: hf
@@ -19,10 +19,10 @@ schema: v5
 input_file: ...
 
 # Text file with one allowed diagnosis per line
-diagnosis_terms_file: ...
+diagnosis_terms_file: inputs/LN_Dx_dictionary_codes_20260630.xlsx
 
 # Directory for extracted JSON outputs
-output_dir: outputs/predictions/
+output_dir: outputs/
 
 # Logging level: DEBUG | INFO | WARNING | ERROR | CRITICAL
 log_level: INFO

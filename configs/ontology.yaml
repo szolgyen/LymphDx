@@ -1,13 +1,13 @@
 # Ontology matching configuration
 # Use this file with:
-#   .venvs/report-llm-hf/bin/python scripts/ontology.py
+#   .venvs/heme-llm-hf/bin/python scripts/ontology.py
 
 # Ontology matching configuration
 
 # File paths
 input_file: ...
 output_file: ...
-ontology_file: ...
+ontology_file: inputs/LN_Dx_dictionary_codes_20260630.xlsx
 
 # Models
 models:

@@ -1,6 +1,6 @@
 # Excel merge configuration
 # Use this file with:
-#   .venvs/report-llm-hf/bin/python scripts/excel_merge.py
+#   .venvs/heme-llm-hf/bin/python scripts/excel_merge.py
 
 # File paths
 input_excel: ...

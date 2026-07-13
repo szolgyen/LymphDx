@@ -89,8 +89,10 @@ def write_output_record(
 ) -> None:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
+    reports = out_path / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
 
-    (out_path / f"case_{report_index:04d}.json").write_text(
+    (reports / f"case_{report_index:04d}.json").write_text(
         json.dumps(output, indent=2),
         encoding="utf-8",
     )
@@ -104,8 +106,10 @@ def write_output_record(
 def write_prompt_record(output_dir: str, report_index: int, prompt: str) -> None:
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
+    reports = out_path / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
 
-    (out_path / f"case_{report_index:04d}.txt").write_text(
+    (reports / f"case_{report_index:04d}.txt").write_text(
         prompt,
         encoding="utf-8",
     )
