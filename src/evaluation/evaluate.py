@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 short_names = {
     "Chronic lymphocytic leukemia/Small lymphocytic lymphoma": "CLL/SLL",
     "Immunodeficiency-associated lymphoproliferative disorders": "IAL",
-    "Monocolonal Immunoglobulin deposition": "MIDD",
-    "Turmor-like lesions with T-cell predominance": "TLT",
-    "Turmor-like lesions with  B cell predominance": "TLB",
+    "Monoclonal Immunoglobulin deposition": "MIDD",
+    "Tumor-like lesions with T cell predominance": "TLT",
+    "Tumor-like lesions with B cell predominance": "TLB",
     "Histiocytic/dendritic cell neoplasms": "HDCN",
     "Hodgkin lymphoma or Mature B cell?": "HL/MBC",
 }
@@ -431,6 +431,26 @@ def hard_case_metrics(df: pd.DataFrame) -> pd.DataFrame:
 
 
 ###############################################################################
+# ACCURACY IN DIFFERENT ICLASSI GROUPS
+###############################################################################
+def accuracy_in_groups(df: pd.DataFrame, group_col: str) -> pd.DataFrame:
+    """Compute accuracy metrics for different ICLASSI groups."""
+    rows = []
+
+    for group in df[group_col].dropna().unique():
+        subset = df[df[group_col] == group]
+        rows.append(
+            {
+                "group": group,
+                "n": len(subset),
+                **summarize_accuracy(subset),
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+###############################################################################
 # ERROR ANALYSIS
 ###############################################################################
 
@@ -632,9 +652,17 @@ def make_group_confusion_matrix_plot(
         short_names.get(x, x) if x in short_names else x for x in df[f"pred_{group}"]
     ]
 
-    cm = confusion_matrix(y_true, y_pred, labels=np.unique(y_true), normalize="pred")
-    cm_df = pd.DataFrame(cm, index=np.unique(y_true), columns=np.unique(y_true))
-    annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
+    _normalize = True
+    if _normalize:
+        cm = confusion_matrix(
+            y_true, y_pred, labels=np.unique(y_true), normalize="pred"
+        )
+        cm_df = pd.DataFrame(cm, index=np.unique(y_true), columns=np.unique(y_true))
+        annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
+    else:
+        cm = confusion_matrix(y_true, y_pred, labels=np.unique(y_true))
+        cm_df = pd.DataFrame(cm, index=np.unique(y_true), columns=np.unique(y_true))
+        annot = True
 
     plt.figure(figsize=(12, 10))
     sns.heatmap(cm_df, annot=annot, fmt="", cmap="Blues")
@@ -683,6 +711,11 @@ def run_evaluation(
     hard_df = hard_case_metrics(report_df)
     # Compute aggregate metrics for error cases only.
     errors_metrics = error_analysis(report_df)
+    # Compute accuracy metrics for different ICLASSI groups.
+    group1_accuracy_breakdown_df = accuracy_in_groups(report_df, "gt_group1")
+    group2_accuracy_breakdown_df = accuracy_in_groups(report_df, "gt_group2")
+    group3_accuracy_breakdown_df = accuracy_in_groups(report_df, "gt_group3")
+
     # Compare aggregate metrics for rare vs. common diagnoses.
     rare_df = rare_diagnosis_metrics(report_df, params.get("RARE_DIAGNOSIS_THRESHOLD"))
     # Compute accuracy and coverage metrics vs. prediction score threshold.
@@ -705,6 +738,9 @@ def run_evaluation(
         errors_metrics=errors_metrics,
         rare_df=rare_df,
         threshold_df=threshold_df,
+        group1_accuracy_breakdown_df=group1_accuracy_breakdown_df,
+        group2_accuracy_breakdown_df=group2_accuracy_breakdown_df,
+        group3_accuracy_breakdown_df=group3_accuracy_breakdown_df,
         output_file_names=output_file_names,
     )
     logger.info("Evaluation completed successfully")
@@ -718,6 +754,9 @@ def write_outputs(
     errors_metrics: dict[str, float],
     rare_df: pd.DataFrame,
     threshold_df: pd.DataFrame,
+    group1_accuracy_breakdown_df: pd.DataFrame,
+    group2_accuracy_breakdown_df: pd.DataFrame,
+    group3_accuracy_breakdown_df: pd.DataFrame,
     output_file_names: dict[str, str],
 ) -> None:
     logger.info(
@@ -730,6 +769,16 @@ def write_outputs(
     hard_df.to_csv(output_dir / output_file_names.get("OUTPUT_HARD_CASES"), index=False)
     rare_df.to_csv(
         output_dir / output_file_names.get("OUTPUT_RARE_DIAGNOSIS"), index=False
+    )
+
+    group1_accuracy_breakdown_df.to_csv(
+        output_dir / output_file_names.get("OUTPUT_GROUP1_ACCURACY"), index=False
+    )
+    group2_accuracy_breakdown_df.to_csv(
+        output_dir / output_file_names.get("OUTPUT_GROUP2_ACCURACY"), index=False
+    )
+    group3_accuracy_breakdown_df.to_csv(
+        output_dir / output_file_names.get("OUTPUT_GROUP3_ACCURACY"), index=False
     )
 
     write_json(report_metrics, output_dir / output_file_names.get("OUTPUT_SUMMARY"))
