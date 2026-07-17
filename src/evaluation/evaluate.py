@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import auc
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import matthews_corrcoef
 import seaborn as sns
 
 logger = logging.getLogger(__name__)
@@ -351,25 +352,41 @@ def accuracy(series: pd.Series) -> float:
     return float(series.mean())
 
 
+def mcc(y_true: pd.Series, y_pred: pd.Series) -> float:
+    if len(y_true) == 0:
+        return np.nan
+    return float(matthews_corrcoef(y_true, y_pred))
+
+
 def summarize_accuracy(df: pd.DataFrame) -> dict[str, float]:
     return {
-        "top1_accuracy": accuracy(df["top1_correct"]),
-        "top3_accuracy": accuracy(df["top3_correct"]),
-        "top5_accuracy": accuracy(df["top5_correct"]),
-        "top1_group1_accuracy": accuracy(df["top1_group1_correct"]),
-        "top1_group2_accuracy": accuracy(df["top1_group2_correct"]),
-        "top1_group3_accuracy": accuracy(df["top1_group3_correct"]),
-        "top3_group1_accuracy": accuracy(df["top3_group1_correct"]),
-        "top3_group2_accuracy": accuracy(df["top3_group2_correct"]),
-        "top3_group3_accuracy": accuracy(df["top3_group3_correct"]),
-        "top5_group1_accuracy": accuracy(df["top5_group1_correct"]),
-        "top5_group2_accuracy": accuracy(df["top5_group2_correct"]),
-        "top5_group3_accuracy": accuracy(df["top5_group3_correct"]),
-        "has_differential_accuracy": accuracy(df["has_differential_correct"]),
+        "primary_top1_accuracy": accuracy(df["top1_correct"]),
+        "primary_top3_accuracy": accuracy(df["top3_correct"]),
+        "primary_top5_accuracy": accuracy(df["top5_correct"]),
+        "i-CLASSi_1_top1_accuracy": accuracy(df["top1_group1_correct"]),
+        "i-CLASSi_2_top1_accuracy": accuracy(df["top1_group2_correct"]),
+        "i-CLASSi_3_top1_accuracy": accuracy(df["top1_group3_correct"]),
+        "i-CLASSi_1_top3_accuracy": accuracy(df["top3_group1_correct"]),
+        "i-CLASSi_2_top3_accuracy": accuracy(df["top3_group2_correct"]),
+        "i-CLASSi_3_top3_accuracy": accuracy(df["top3_group3_correct"]),
+        "i-CLASSi_1_top5_accuracy": accuracy(df["top5_group1_correct"]),
+        "i-CLASSi_2_top5_accuracy": accuracy(df["top5_group2_correct"]),
+        "i-CLASSi_3_top5_accuracy": accuracy(df["top5_group3_correct"]),
+        "differential_mentioned_accuracy": accuracy(df["has_differential_correct"]),
         "is_definitive_accuracy": accuracy(df["is_definitive_correct"]),
-        "has_prior_malignancy_accuracy": accuracy(df["has_prior_malignancy_correct"]),
-        "has_concurrent_malignancy_accuracy": accuracy(
+        "prior_malignancy_accuracy": accuracy(df["has_prior_malignancy_correct"]),
+        "concurrent_malignancy_accuracy": accuracy(
             df["has_concurrent_malignancy_correct"]
+        ),
+        "differential_mentioned_mcc": mcc(
+            df["gt_has_differential"], df["pred_has_differential"]
+        ),
+        "is_definitive_mcc": mcc(df["gt_is_definitive"], df["pred_is_definitive"]),
+        "prior_malignancy_mcc": mcc(
+            df["gt_has_prior_malignancy"], df["pred_has_prior_malignancy"]
+        ),
+        "concurrent_malignancy_mcc": mcc(
+            df["gt_has_concurrent_malignancy"], df["pred_has_concurrent_malignancy"]
         ),
     }
 
@@ -384,13 +401,13 @@ def compute_report_metrics(df: pd.DataFrame) -> dict[str, float]:
 
 def stratified_top1_accuracy(df: pd.DataFrame) -> dict[str, float]:
     return {
-        "top1_accuracy_given_group1_correct": accuracy(
+        "i-CLASSi_1_top1_accuracy_given_correct": accuracy(
             df.loc[df["top1_group1_correct"], "top1_correct"]
         ),
-        "top1_accuracy_given_group2_correct": accuracy(
+        "i-CLASSi_2_top1_accuracy_given_correct": accuracy(
             df.loc[df["top1_group2_correct"], "top1_correct"]
         ),
-        "top1_accuracy_given_group3_correct": accuracy(
+        "i-CLASSi_3_top1_accuracy_given_correct": accuracy(
             df.loc[df["top1_group3_correct"], "top1_correct"]
         ),
     }
