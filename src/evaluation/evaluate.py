@@ -9,8 +9,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.metrics import auc
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 logger = logging.getLogger(__name__)
+
+short_names = {
+    "Chronic lymphocytic leukemia/Small lymphocytic lymphoma": "CLL/SLL",
+    "Immunodeficiency-associated lymphoproliferative disorders": "IAL",
+    "Monocolonal Immunoglobulin deposition": "MIDD",
+    "Turmor-like lesions with T-cell predominance": "TLT",
+    "Turmor-like lesions with  B cell predominance": "TLB",
+    "Histiocytic/dendritic cell neoplasms": "HDCN",
+    "Hodgkin lymphoma or Mature B cell?": "HL/MBC",
+}
 
 
 ###############################################################################
@@ -606,6 +618,34 @@ def make_coverage_accuracy_plot(threshold_df: pd.DataFrame, output_path: Path) -
     plt.close(fig)
 
 
+def make_group_confusion_matrix_plot(
+    df: pd.DataFrame, group: str, output_path: Path
+) -> None:
+    """Make a confusion matrix plot for the specified diagnosis group."""
+
+    y_true = ["nan" if pd.isna(x) else x for x in df[f"gt_{group}"]]
+    y_true = [
+        short_names.get(x, x) if x in short_names else x for x in df[f"gt_{group}"]
+    ]
+    y_pred = ["nan" if pd.isna(x) else x for x in df[f"pred_{group}"]]
+    y_pred = [
+        short_names.get(x, x) if x in short_names else x for x in df[f"pred_{group}"]
+    ]
+
+    cm = confusion_matrix(y_true, y_pred, labels=np.unique(y_true), normalize="pred")
+    cm_df = pd.DataFrame(cm, index=np.unique(y_true), columns=np.unique(y_true))
+    annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
+
+    plt.figure(figsize=(12, 10))
+    sns.heatmap(cm_df, annot=annot, fmt="", cmap="Blues")
+    plt.title(f"Confusion Matrix for {group}")
+    plt.ylabel("True Label")
+    plt.xlabel("Predicted Label")
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+
 ###############################################################################
 # EVALUATION PIPELINE
 ###############################################################################
@@ -707,6 +747,27 @@ def write_outputs(
         threshold_df,
         output_dir / output_file_names.get("OUTPUT_COVERAGE_ACCURACY_PLOT"),
     )
+
+    if "OUTPUT_CONFUSION_MATRIX_GROUP1" in output_file_names:
+        make_group_confusion_matrix_plot(
+            report_df,
+            "group1",
+            output_dir / output_file_names.get("OUTPUT_CONFUSION_MATRIX_GROUP1"),
+        )
+
+    if "OUTPUT_CONFUSION_MATRIX_GROUP2" in output_file_names:
+        make_group_confusion_matrix_plot(
+            report_df,
+            "group2",
+            output_dir / output_file_names.get("OUTPUT_CONFUSION_MATRIX_GROUP2"),
+        )
+
+    if "OUTPUT_CONFUSION_MATRIX_GROUP3" in output_file_names:
+        make_group_confusion_matrix_plot(
+            report_df,
+            "group3",
+            output_dir / output_file_names.get("OUTPUT_CONFUSION_MATRIX_GROUP3"),
+        )
 
 
 ###############################################################################

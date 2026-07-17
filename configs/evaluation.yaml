@@ -25,3 +25,6 @@ output_files:
   OUTPUT_THRESHOLDS: "threshold_metrics.csv"
   OUTPUT_THRESHOLD_PLOT: "threshold_accuracy_coverage.png"
   OUTPUT_COVERAGE_ACCURACY_PLOT: "accuracy_coverage_plot.png"
+  OUTPUT_CONFUSION_MATRIX_GROUP1: "confusion_matrix_group1.png"
+  OUTPUT_CONFUSION_MATRIX_GROUP2: "confusion_matrix_group2.png"
+  OUTPUT_CONFUSION_MATRIX_GROUP3: "confusion_matrix_group3.png"

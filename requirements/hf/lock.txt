@@ -113,7 +113,9 @@ markdown-it-py==4.2.0
 markupsafe==3.0.3
     # via jinja2
 matplotlib==3.11.0
-    # via -r requirements/hf/requirements.txt
+    # via
+    #   -r requirements/hf/requirements.txt
+    #   seaborn
 matplotlib-inline==0.2.2
     # via ipython
 mdurl==0.1.2
@@ -134,6 +136,7 @@ numpy==2.4.6
     #   pandas
     #   scikit-learn
     #   scipy
+    #   seaborn
     #   sentence-transformers
     #   transformers
 nvidia-cublas-cu12==12.4.5.8
@@ -185,7 +188,9 @@ packaging==26.2
     #   matplotlib
     #   transformers
 pandas==3.0.3
-    # via -r requirements/hf/requirements.txt
+    # via
+    #   -r requirements/hf/requirements.txt
+    #   seaborn
 parso==0.8.7
     # via jedi
 pexpect==4.9.0
@@ -259,6 +264,8 @@ scipy==1.18.0
     #   -r requirements/hf/requirements.txt
     #   scikit-learn
     #   sentence-transformers
+seaborn==0.13.2
+    # via -r requirements/hf/requirements.txt
 sentence-transformers==5.6.0
     # via -r requirements/hf/requirements.txt
 setuptools==83.0.0
