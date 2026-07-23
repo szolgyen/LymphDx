@@ -86,7 +86,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "--config",
-        default="configs/model_evaluation.yaml",
+        default="configs/evaluation.yaml",
         help="Path to evaluation configuration file",
     )
 
@@ -479,23 +479,81 @@ def accuracy_in_groups(df: pd.DataFrame, group_col: str) -> pd.DataFrame:
 
 
 def error_analysis(df: pd.DataFrame) -> dict[str, float]:
-    """Compute metrics for error cases (where top-1 prediction is incorrect):
-    - fraction_differential: fraction of error cases with a differential diagnosis
-    - fraction_non_definitive: fraction of error cases that are not definitive
-    - fraction_prior_malignancy: fraction of error cases with a prior malignancy
-    - fraction_concurrent_malignancy: fraction of error cases with a concurrent malignancy
+    """Compute metrics for error cases (where top-1 prediction is incorrect).
+
+    Returns mutually exclusive and exhaustive categories based on combinations of:
+    - gt_has_differential (D)
+    - gt_is_definitive (N = NOT definitive)
+    - gt_has_prior_malignancy (P)
+    - gt_has_concurrent_malignancy (C)
+
+    Categories:
+    - none: 0 attributes
+    - one_*: exactly 1 attribute
+    - two_**: exactly 2 attributes (all pairs)
+    - three_***: exactly 3 attributes (all triples)
+    - all_four: all 4 attributes
     """
-    errors = df[~df["top1_correct"]]
+    errors = df[~df["top1_correct"]].copy()
 
     if len(errors) == 0:
         return {}
 
-    return {
-        "fraction_differential": errors["gt_has_differential"].mean(),
-        "fraction_non_definitive": (~errors["gt_is_definitive"]).mean(),
-        "fraction_prior_malignancy": errors["gt_has_prior_malignancy"].mean(),
-        "fraction_concurrent_malignancy": errors["gt_has_concurrent_malignancy"].mean(),
-    }
+    # Create boolean columns for each attribute
+    errors["has_D"] = errors["gt_has_differential"]
+    errors["has_N"] = ~errors["gt_is_definitive"]
+    errors["has_P"] = errors["gt_has_prior_malignancy"]
+    errors["has_C"] = errors["gt_has_concurrent_malignancy"]
+
+    # Count number of attributes per error
+    errors["num_attrs"] = (
+        errors["has_D"].astype(int)
+        + errors["has_N"].astype(int)
+        + errors["has_P"].astype(int)
+        + errors["has_C"].astype(int)
+    )
+
+    total = len(errors)
+    result = {}
+
+    # None (0 attributes)
+    result["fraction_none"] = (errors["num_attrs"] == 0).sum() / total
+
+    # Exactly one attribute
+    one_attr = errors[errors["num_attrs"] == 1]
+    result["fraction_one_D"] = one_attr["has_D"].sum() / total
+    result["fraction_one_N"] = one_attr["has_N"].sum() / total
+    result["fraction_one_P"] = one_attr["has_P"].sum() / total
+    result["fraction_one_C"] = one_attr["has_C"].sum() / total
+
+    # Exactly two attributes (all 6 pairs)
+    two_attr = errors[errors["num_attrs"] == 2]
+    result["fraction_two_DN"] = (two_attr["has_D"] & two_attr["has_N"]).sum() / total
+    result["fraction_two_DP"] = (two_attr["has_D"] & two_attr["has_P"]).sum() / total
+    result["fraction_two_DC"] = (two_attr["has_D"] & two_attr["has_C"]).sum() / total
+    result["fraction_two_NP"] = (two_attr["has_N"] & two_attr["has_P"]).sum() / total
+    result["fraction_two_NC"] = (two_attr["has_N"] & two_attr["has_C"]).sum() / total
+    result["fraction_two_PC"] = (two_attr["has_P"] & two_attr["has_C"]).sum() / total
+
+    # Exactly three attributes (all 4 triples)
+    three_attr = errors[errors["num_attrs"] == 3]
+    result["fraction_three_DNP"] = (
+        three_attr["has_D"] & three_attr["has_N"] & three_attr["has_P"]
+    ).sum() / total
+    result["fraction_three_DNC"] = (
+        three_attr["has_D"] & three_attr["has_N"] & three_attr["has_C"]
+    ).sum() / total
+    result["fraction_three_DPC"] = (
+        three_attr["has_D"] & three_attr["has_P"] & three_attr["has_C"]
+    ).sum() / total
+    result["fraction_three_NPC"] = (
+        three_attr["has_N"] & three_attr["has_P"] & three_attr["has_C"]
+    ).sum() / total
+
+    # All four attributes
+    result["fraction_all_four"] = (errors["num_attrs"] == 4).sum() / total
+
+    return result
 
 
 ###############################################################################
