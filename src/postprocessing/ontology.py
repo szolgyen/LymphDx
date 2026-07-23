@@ -248,7 +248,15 @@ def load_ontology(excel_file):
         f"Loaded {len(ontology)} synonym entries for {len(grouped)} ontology concepts"
     )
 
-    return ontology, code_to_groups
+    diagnosis_to_code = {}
+
+    for _, row in df.iterrows():
+        code = row["Code"]
+        diagnosis = str(row["Diagnosis"]).strip()
+
+        diagnosis_to_code[diagnosis] = code
+
+    return ontology, code_to_groups, diagnosis_to_code
 
 
 def process_jsonl(
@@ -256,9 +264,15 @@ def process_jsonl(
     output_file,
     matcher,
     top_n=5,
+    guidance=False,
+    code_to_groups=None,
+    diagnosis_to_code=None,
 ):
     logger.info("Processing predictions from %s", input_file)
     n_cases = 0
+
+    code_to_groups = code_to_groups or {}
+    diagnosis_to_code = diagnosis_to_code or {}
 
     with open(input_file, "r") as fin, open(output_file, "w") as fout:
         for line in fin:
@@ -270,8 +284,22 @@ def process_jsonl(
             record = json.loads(line)
 
             primary = record.get("primary_diagnosis")
+            primary_code = diagnosis_to_code.get(primary)
 
-            results = matcher.match(primary, top_n=top_n)
+            if guidance:
+                groups = code_to_groups.get(primary_code, {})
+                results = {
+                    "top_1": {
+                        "code": primary_code,
+                        "name": primary,
+                        "score": None,
+                        "group_1": groups.get("Diagnostic group 1"),
+                        "group_2": groups.get("Diagnostic group 2"),
+                        "group_3": groups.get("Diagnostic group 3"),
+                    }
+                }
+            else:
+                results = matcher.match(primary, top_n=top_n)
 
             record["valid_primary_diagnoses"] = {}
 
@@ -300,8 +328,22 @@ def process_jsonl(
 
             for container in containers:
                 diagnosis = container.get("diagnosis")
+                diagnosis_code = diagnosis_to_code.get(diagnosis)
 
-                results = matcher.match(diagnosis, top_n=top_n)
+                if guidance:
+                    groups = code_to_groups.get(diagnosis_code, {})
+                    results = {
+                        "top_1": {
+                            "code": diagnosis_code,
+                            "name": diagnosis,
+                            "score": None,
+                            "group_1": groups.get("Diagnostic group 1"),
+                            "group_2": groups.get("Diagnostic group 2"),
+                            "group_3": groups.get("Diagnostic group 3"),
+                        }
+                    }
+                else:
+                    results = matcher.match(diagnosis, top_n=top_n)
 
                 container["valid_diagnoses"] = {}
 
@@ -365,37 +407,42 @@ def argparse_setup():
         default="configs/ontology.yaml",
         help="Path to ontology configuration YAML file",
     )
+    parser.add_argument(
+        "--guidance",
+        action="store_true",
+        help="Skip ontology mapping and use diagnosis codes directly.",
+    )
 
     args = parser.parse_args()
 
-    return args.config
+    return args.config, args.guidance
 
 
 def main():
     logger.info("Starting ontology matching")
-    config_path = argparse_setup()
+    config_path, guidance = argparse_setup()
 
     config = load_config(config_path)
 
-    # Load ontology
-    logger.info("Loading ontology from config")
-    ontology, code_to_groups = load_ontology(config["ontology_file"])
-    logger.info("Loaded %d ontology concepts", len(ontology))
+    ontology, code_to_groups, diagnosis_to_code = load_ontology(config["ontology_file"])
 
-    logger.info("Initializing ontology matcher")
-    matcher = OntologyMatcher(
-        ontology=ontology,
-        retrieval_k=config["matching"]["retrieval_k"],
-        acceptance_threshold=config["matching"]["acceptance_threshold"],
-        use_prefilter=config["matching"]["use_prefilter"],
-        code_to_groups=code_to_groups,
-    )
+    matcher = None
+    if not guidance:
+        logger.info("Initializing ontology matcher")
+        matcher = OntologyMatcher(
+            ontology=ontology,
+            retrieval_k=config["matching"]["retrieval_k"],
+            acceptance_threshold=config["matching"]["acceptance_threshold"],
+            use_prefilter=config["matching"]["use_prefilter"],
+            code_to_groups=code_to_groups,
+        )
 
-    logger.info("Processing JSONL files")
     process_jsonl(
         config.get("input_file"),
         config.get("output_file"),
         matcher,
         top_n=config["matching"]["top_n"],
+        guidance=guidance,
+        code_to_groups=code_to_groups,
+        diagnosis_to_code=diagnosis_to_code,
     )
-    logger.info("Ontology matching completed successfully")

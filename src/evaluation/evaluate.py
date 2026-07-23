@@ -79,8 +79,14 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--guidance",
+        action="store_true",
+        help="Skip score-based evaluation for guidance mode.",
+    )
+
+    parser.add_argument(
         "--config",
-        default="configs/evaluation.yaml",
+        default="configs/model_evaluation.yaml",
         help="Path to evaluation configuration file",
     )
 
@@ -703,6 +709,7 @@ def run_evaluation(
     params: dict[str, Any],
     output_file_names: dict[str, str],
     exclude_failed: bool = True,
+    guidance: bool = False,
 ) -> None:
     logger.info("Starting evaluation")
     logger.info("Loading ground-truth from %s", gt_excel)
@@ -718,7 +725,7 @@ def run_evaluation(
     # Build a DataFrame with one row per report.
     report_df = build_report_level_df(gt, prediction_map, params.get("TOP_K_VALUES"))
 
-    if exclude_failed:
+    if exclude_failed and not guidance:
         report_df = report_df.dropna(subset=["pred_score"])
 
     # Compute aggregate metrics based on the report-level DataFrame.
@@ -736,15 +743,21 @@ def run_evaluation(
     # Compare aggregate metrics for rare vs. common diagnoses.
     rare_df = rare_diagnosis_metrics(report_df, params.get("RARE_DIAGNOSIS_THRESHOLD"))
     # Compute accuracy and coverage metrics vs. prediction score threshold.
-    threshold_df = threshold_analysis(report_df, params.get("THRESHOLD_STEPS"))
-
-    for k in params.get("TOP_K_VALUES"):
-        report_metrics[f"threshold_auc_top{k}"] = float(
-            auc(
-                threshold_df["coverage"],
-                threshold_df[f"accuracy_top{k}"],
-            )
+    if guidance:
+        threshold_df = None
+    else:
+        threshold_df = threshold_analysis(
+            report_df,
+            params.get("THRESHOLD_STEPS"),
         )
+
+        for k in params.get("TOP_K_VALUES"):
+            report_metrics[f"threshold_auc_top{k}"] = float(
+                auc(
+                    threshold_df["coverage"],
+                    threshold_df[f"accuracy_top{k}"],
+                )
+            )
 
     logger.info("Writing evaluation results to %s", output_dir)
     write_outputs(
@@ -803,16 +816,16 @@ def write_outputs(
         errors_metrics, output_dir / output_file_names.get("OUTPUT_ERROR_ANALYSIS")
     )
 
-    make_threshold_plot(
-        threshold_df,
-        output_dir / output_file_names.get("OUTPUT_THRESHOLD_PLOT"),
-    )
-    logger.info("All evaluation outputs written to %s", output_dir)
+    if threshold_df is not None:
+        make_threshold_plot(
+            threshold_df,
+            output_dir / output_file_names.get("OUTPUT_THRESHOLD_PLOT"),
+        )
 
-    make_coverage_accuracy_plot(
-        threshold_df,
-        output_dir / output_file_names.get("OUTPUT_COVERAGE_ACCURACY_PLOT"),
-    )
+        make_coverage_accuracy_plot(
+            threshold_df,
+            output_dir / output_file_names.get("OUTPUT_COVERAGE_ACCURACY_PLOT"),
+        )
 
     if "OUTPUT_CONFUSION_MATRIX_GROUP1" in output_file_names:
         make_group_confusion_matrix_plot(
@@ -858,4 +871,5 @@ def main() -> None:
         params=params,
         output_file_names=output_file_names,
         exclude_failed=params.get("EXCLUDE_FAILED", True),
+        guidance=args.guidance,
     )
