@@ -1,0 +1,573 @@
+TASK
+
+You are a hematopathology coding assistant focused exclusively on LYMPH NODE DIAGNOSES.
+
+INPUT
+
+1. Diagnostic Dictionary
+
+Columns:
+- Code
+- Diagnosis
+- Diagnostic group 1
+- Diagnostic group 2
+- Diagnostic group 3
+
+2. Pathology Report
+
+OBJECTIVE
+
+For each pathology report:
+
+1. Read the report text from the Deidentified_Report column.
+2. Identify all specimen containers before determining any final diagnosis.
+3. Determine which containers represent lymph node specimens.
+4. Extract the diagnosis assigned to each specimen/container.
+5. Select a SINGLE final lymph node diagnosis for the report based ONLY on lymph node containers.
+6. Match the selected lymph node diagnosis to the most appropriate Diagnostic Dictionary entity.
+7. Use semantic matching, not exact wording alone.
+8. Use Diagnostic Groups only as supporting information.
+9. Process each report independently.
+
+LYMPH NODE DIAGNOSIS SELECTION RULE
+
+The final lymph_node_diagnosis represents the diagnosis of the lymph node(s), not the overall disease affecting the patient.
+
+Before assigning lymph_node_diagnosis:
+
+1. Extract all specimen containers and assign a diagnosis to each container.
+2. Identify all containers where is_lymph_node = true.
+3. Select lymph_node_diagnosis only from diagnoses assigned to lymph node containers.
+4. Ignore diagnoses from non-lymph-node specimens when selecting lymph_node_diagnosis.
+5. If a non-lymph-node specimen contains malignancy but the lymph node diagnosis is reactive, benign, inflammatory, granulomatous, or negative for malignancy, select the lymph node diagnosis.
+6. If multiple lymph node diagnoses are present, select the most specific and clinically significant lymph node diagnosis.
+7. Never use a diagnosis from a non-lymph-node specimen when a lymph node diagnosis is available.
+
+IMPORTANT TASK RULE
+
+The goal is NOT to identify the overall primary disease of the patient.
+
+The goal is to identify the diagnosis assigned to the lymph node(s).
+
+Examples:
+
+- If a colon resection contains adenocarcinoma and the lymph node is reactive, return the reactive lymph node diagnosis.
+- If a lymph node contains lymphoma, return the lymphoma diagnosis.
+- If multiple specimens are present, only lymph node diagnoses are eligible for selection as lymph_node_diagnosis.
+
+REQUIRED PROCESSING ORDER
+
+STEP 1 - CONTAINER EXTRACTION
+
+Extract all specimen containers before assigning any final diagnosis.
+
+For each container populate:
+
+- label
+- specimen
+- is_lymph_node
+- anatomic_location
+- diagnosis
+
+Every specimen/container mentioned in the report should be represented when possible.
+
+STEP 2 - IDENTIFY LYMPH NODE CONTAINERS
+
+Mark:
+
+"is_lymph_node": true
+
+for lymph node specimens, including but not limited to:
+
+- Lymph node biopsy
+- Lymph node excision
+- Cervical lymph node
+- Axillary lymph node
+- Inguinal lymph node
+
+All other specimens should be marked:
+
+"is_lymph_node": false
+
+STEP 3 - ASSIGN CONTAINER DIAGNOSES
+
+Assign the diagnosis stated for each container independently.
+
+Container diagnoses should reflect the diagnosis associated with that specific specimen rather than the overall case diagnosis.
+
+STEP 4 - SELECT THE FINAL LYMPH NODE DIAGNOSIS
+
+The final lymph_node_diagnosis must be selected ONLY from containers where:
+
+"is_lymph_node": true
+
+Never select the diagnosis from a non-lymph-node specimen when a lymph node diagnosis is available.
+
+If multiple lymph node containers exist, select the most clinically significant and specific lymph node diagnosis using this priority:
+
+1. Definite neoplasm involving lymph node
+2. Specific pathologic process
+3. Reactive / benign process
+4. Negative for malignancy
+
+STEP 5 - DICTIONARY MATCHING
+
+Match the selected lymph node diagnosis to the Diagnostic Dictionary.
+
+MATCHING PRIORITY
+
+1. Exact match
+2. WHO/ICC equivalent terminology
+3. Accepted synonym
+4. Parent disease category
+5. Closest semantic match
+
+If multiple dictionary entries match, select the most specific diagnosis and apply the same mapping consistently throughout the dataset.
+
+For every selected Diagnostic Dictionary match:
+
+- lymph_node_diagnosis_code must contain the value from the matched dictionary row's Code column.
+- lymph_node_diagnosis must contain the value from the matched dictionary row's Diagnosis column.
+
+These two fields must always originate from the same dictionary record.
+
+NO NULL DIAGNOSES
+
+If uncertainty exists:
+
+- Select the most probable diagnosis supported by the report.
+- Choose the closest matching dictionary concept.
+- Lower confidence when appropriate.
+
+OUTPUT
+
+Return one JSON object per report using exactly this schema:
+
+{
+  "is_definitive": boolean,
+  "lymph_node_diagnosis_code": "string",
+  "lymph_node_diagnosis": "string",
+  "containers": [
+    {
+      "label": "string|null",
+      "specimen": "string|null",
+      "is_lymph_node": boolean,
+      "anatomic_location": "string|null",
+      "diagnosis": "string"
+    }
+  ],
+  "has_differential_diagnosis": boolean,
+  "has_prior_malignancy": boolean,
+  "has_concurrent_malignancy": boolean,
+  "confidence": "High|Moderate|Low"
+}
+
+FIELD INTERPRETATION
+
+is_definitive
+- True if a final diagnosis is rendered.
+- Otherwise false.
+
+lymph_node_diagnosis_code
+- Value from the Diagnostic Dictionary Code column corresponding to the selected lymph_node_diagnosis.
+- Must come from the same dictionary row used to derive lymph_node_diagnosis.
+
+lymph_node_diagnosis
+- Final selected lymph node diagnosis after dictionary matching.
+
+containers[].diagnosis
+- Diagnosis assigned to that specific specimen/container.
+
+has_differential_diagnosis
+- Differential diagnosis explicitly mentioned.
+
+has_prior_malignancy
+- Historical malignancy mentioned.
+
+has_concurrent_malignancy
+- Second active malignancy present.
+
+confidence
+
+High:
+- Explicit lymph node diagnosis stated.
+
+Moderate:
+- Diagnosis inferred from pathology wording.
+
+Low:
+- Closest semantic interpretation required.
+
+Example
+
+Input Report:
+
+A. Mesenteric lymph node:
+Reactive follicular hyperplasia.
+
+B. Colon resection:
+Adenocarcinoma.
+
+Output:
+
+{
+  "is_definitive": true,
+  "lymph_node_diagnosis_code": "412",
+  "lymph_node_diagnosis": "Reactive follicular hyperplasia",
+  "containers": [
+    {
+      "label": "A",
+      "specimen": "Mesenteric lymph node",
+      "is_lymph_node": true,
+      "anatomic_location": "Mesenteric lymph node",
+      "diagnosis": "Reactive follicular hyperplasia"
+    },
+    {
+      "label": "B",
+      "specimen": "Colon resection",
+      "is_lymph_node": false,
+      "anatomic_location": "Colon",
+      "diagnosis": "Adenocarcinoma"
+    }
+  ],
+  "has_differential_diagnosis": false,
+  "has_prior_malignancy": false,
+  "has_concurrent_malignancy": false,
+  "confidence": "High"
+}
+
+QUALITY CONTROL
+
+Before returning output for each report:
+
+1. Extract all specimen containers and assign a diagnosis to every container.
+2. Correctly identify all lymph node containers.
+3. Select lymph_node_diagnosis only from containers where is_lymph_node = true.
+4. Never select a diagnosis from a non-lymph-node specimen when a lymph node diagnosis is available.
+5. Ensure lymph_node_diagnosis and lymph_node_diagnosis_code originate from the same dictionary record.
+6. Do not return null diagnoses.
+7. Return valid JSON matching the schema exactly.
+8. Process each report independently.
+
+DIAGNOSTIC DICTIONARY:
+
+Code,Diagnosis,Diagnostic group 1,Diagnostic group 2,Diagnostic group 3
+1,ATLL,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+1,Adult T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+1,Adult T-cell leukemia/lymphoma,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+2,Primary cutaneous anaplastic large cell lymphoma,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+2,Primary cutaneous ALCL,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+4,"TFH cell lymphoma, angioimmunoblastic type",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+4,"Nodal TFH cell lymphoma, angioimmunoblastic-type",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+4,"Nodal T follicular helper cell lymphoma, follicular type",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+4,"Nodal T follicular helper cell lymphoma, angioimmunoblastic-type",T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+4,"Nodal T follicular helper cell lymphoma, angioimmunoblastic type",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+4,Nodal T follicular helper cell lymphoma NOS,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+4,Angioimmunoblastic T-cell lymphoma,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+4,Angioimmunoblastic lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+5,B cell unclassifiable with features indeterminate between diffuse large B cell lymphoma and Burkitt lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+6,Mediastinal grey zone lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+6,"B cell lymphoma, unclassifiable, with features intermediate between diffuse large B cell lymphoma and classic Hodgkin lymphoma",Large B cell lymphoma,Large B cell,Malignant/neoplastic
+8,Burkitt-type lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+8,Burkitt lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+10,Small lymphocytic lymphoma,Chronic lymphocytic leukemia/Small lymphocytic lymphoma,Mature B cell,Malignant/neoplastic
+10,SLL,Chronic lymphocytic leukemia/Small lymphocytic lymphoma,Mature  B cell,Malignant/neoplastic
+10,CLL/SLL,Chronic lymphocytic leukemia/Small lymphocytic lymphoma,Mature  B cell,Malignant/neoplastic
+10,CLL ,Chronic lymphocytic leukemia/Small lymphocytic lymphoma,Mature B cell,Malignant/neoplastic
+10,Chronic lymphocytic leukemia/small lymphocytic lymphoma ,Chronic lymphocytic leukemia/Small lymphocytic lymphoma,Mature B cell,Malignant/neoplastic
+10,Chronic lymphocytic leukemia ,Chronic lymphocytic leukemia/Small lymphocytic lymphoma,Mature B cell,Malignant/neoplastic
+12,Enteropathy-associated T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+13,MZL,Marginal zone lymphoma,Mature B cell,Malignant/neoplastic
+13,Marginal zone lymphoma,Marginal zone lymphoma,Mature  B cell,Malignant/neoplastic
+13,MALT lymphoma,Marginal zone lymphoma,Mature B cell,Malignant/neoplastic
+13,Extranodal marginal zone lymphoma of mucosa-associated lymphoid tissue ,Marginal zone lymphoma,Mature  B cell,Malignant/neoplastic
+13,Extranodal marginal zone (MALT),Marginal zone lymphoma,Mature B cell,Malignant/neoplastic
+14,"Extranodal NK/T-cell lymphoma, nasal type",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+14,Extranodal NK/T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+18,Hepatosplenic T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+20,Immunodeficiency-associated lymphoproliferative disorders,Other non-Hodgkin lymphoma,Immunodeficiency-associated lymphoproliferative disorders,Malignant/neoplastic
+21,T-large granular lymphocytic leukemia,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+21,T-cell large granular lymphocytic leukemia,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+22,Low-grade B cell NOS,Other B cell lymphoma,Mature B cell,Malignant/neoplastic
+26,Lymphoplasmacytic lymphoma,Other B cell lymphoma,Mature  B cell,Malignant/neoplastic
+27,MCL,Mantle cell lymphoma,Mature  B cell,Malignant/neoplastic
+27,Mantle cell lymphoma,Mantle cell lymphoma,Mature B cell,Malignant/neoplastic
+29,Primary mediastinal large B cell lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+29,Primary mediastinal (thymic) large B cell lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+31,Mycosis fungoides,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+32,Nodal marginal zone lymphoma,Marginal zone lymphoma,Mature  B cell,Malignant/neoplastic
+32,Nodal marginal zone B cell lymphoma,Marginal zone lymphoma,Mature B cell,Malignant/neoplastic
+32,NMZL,Marginal zone lymphoma,Mature  B cell,Malignant/neoplastic
+33,Nodular lymphocyte predominant Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma or Mature B cell?,Malignant/neoplastic
+33,Nodular lymphocyte predominant B cell lymphoma,Hodgkin lymphoma,Hodgkin lymphoma or Mature  B cell?,Malignant/neoplastic
+33,NLPHL,Hodgkin lymphoma,Hodgkin lymphoma or Mature B cell?,Malignant/neoplastic
+35,Other B-lineage neoplasm,Other B cell lymphoma,Mature  B cell,Malignant/neoplastic
+36,Other Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+37,Other lymphoid neoplasm,Other non-Hodgkin lymphoma,Other lymphoid neoplasm,Malignant/neoplastic
+38,Other T/NK cell neoplasm,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+39,PTCL NOS,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+39,"Peripheral T-cell lymphoma, not otherwise specified",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+39,Peripheral T-cell lymphoma NOS,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+42,Primary diffuse large B cell lymphoma of CNS,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+44,Primary effusion lymphoma,Other non-Hodgkin lymphoma,Large  B cell,Malignant/neoplastic
+45,Post-transplant lymphoproliferative disorder (PTLD),Other non-Hodgkin lymphoma,Immunodeficiency-associated lymphoproliferative disorders,Malignant/neoplastic
+46,Sezary syndrome,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+47,Splenic marginal zone lymphoma,Marginal zone lymphoma,Mature B cell,Malignant/neoplastic
+47,SMZL,Marginal zone lymphoma,Mature  B cell,Malignant/neoplastic
+48,Subcutaneous panniculitis-like T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+61,B cell prolymphocytic leukemia,Other non-Hodgkin lymphoma,Mature B cell,Malignant/neoplastic
+62,Hairy cell leukemia,Other non-Hodgkin lymphoma,Mature  B cell,Malignant/neoplastic
+63,"Splenic B cell lymphoma/leukemia, unclassifiable",Other non-Hodgkin lymphoma,Mature B cell,Malignant/neoplastic
+64,Splenic diffuse red pulp small B cell lymphoma,Other non-Hodgkin lymphoma,Mature  B cell,Malignant/neoplastic
+65,Splenic B cell lymphoma/leukemia with prominent nucleoli (SBLPN),Other non-Hodgkin lymphoma,Mature  B cell,Malignant/neoplastic
+65,Hairy cell leukemia - variant,Other non-Hodgkin lymphoma,Mature B cell,Malignant/neoplastic
+67,Primary cutaneous follicular center B-cell lymphoma,Follicular lymphoma,Mature B cell,Malignant/neoplastic
+67,Primary cutaneous follicle center lymphoma,Follicular lymphoma,Mature B cell,Malignant/neoplastic
+67,Follicular center cell lymphoma,Follicular lymphoma,Mature  B cell,Malignant/neoplastic
+67,Cutaneous Follicle Center Lymphoma,Follicular lymphoma,Mature B cell,Malignant/neoplastic
+68,"DLBCL, NOS",Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+68,DLBCL,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+68,"Diffuse large B cell lymphoma, NOS (DLBCL)",Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+68,"Diffuse large B cell lymphoma, NOS",Large B cell lymphoma,Large B cell,Malignant/neoplastic
+68,Diffuse large B cell lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+69,T-cell/histiocyte rich large B cell lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+70,"Primary cutaneous diffuse large B cell lymphoma, leg type",Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+71,EBV positive diffuse large B cell lymphoma of the elderly,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+72,Fibrin-associated large B cell lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+72,Diffuse large B cell lymphoma associated with chronic inflammation,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+73,Lymphomatoid granulomatosis,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+74,Intravascular large B cell lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+75,ALK positive large B cell lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+76,Plasmablastic lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+77,Large B cell lymphoma arising in HHV8-associated Castleman disease,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+78,T-prolymphocytic leukemia,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+78,T-cell prolymphocytic leukemia,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+79,NK-large granular lymphocytic leukemia,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+79,Chronic lymphoproliferative disorder of NK cells,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+80,Aggressive NK cell leukemia,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+81,Systemic EBV-positive T-cell lymphoma of childhood,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+81,Systemic EBV positive TCL of childhood,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+81,EBV-positive T- and NK cell lymphoid proliferations and lymphomas of childhood,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+82,Hydroa vacciniforme-like lymphoproliferative disorder,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+82,Hydroa vacciniforme lymphoproliferative disorder,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+83,Lymphomatoid papulosis,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+84,Primary cutaneous gamma-delta T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+85,Primary cutaneous CD4-positive small or medium T-cell lymphoproliferative disorder,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+85,Primary cutaneous CD4+ small/medium T-cell lymphoproliferative disorder,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+86,"Anaplastic large cell lymphoma, ALK positive",T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+86,ALK-positive ALCL,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+87,"Anaplastic large cell lymphoma, ALK negative",T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+87,ALK-negative ALCL,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+88,Nodular sclerosis Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Nodular sclerosis classic Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Mixed cellularity Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Mixed cellularity classic Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Lymphocyte-rich Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Lymphocyte-rich classic Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Lymphocyte-depleted Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Lymphocyte-depleted classic Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Classical Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+88,Classic Hodgkin lymphoma,Hodgkin lymphoma,Hodgkin lymphoma,Malignant/neoplastic
+89,Pediatric nodal marginal zone lymphoma,Marginal zone lymphoma,Mature B cell,Malignant/neoplastic
+90,In situ follicular neoplasia,precursor lesion,Mature B cell,Malignant/neoplastic
+90,In situ follicular B cell neoplasm,precursor lesion,Mature  B cell,Malignant/neoplastic
+91,Duodenal-type follicular lymphoma,Follicular lymphoma,Mature  B cell,Malignant/neoplastic
+92,Pediatric-type follicular lymphoma,Follicular lymphoma,Mature B cell,Malignant/neoplastic
+93,In situ mantle cell neoplasm,precursor lesion,Mature B cell,Malignant/neoplastic
+93,In situ mantle cell neoplasia,precursor lesion,Mature  B cell,Malignant/neoplastic
+94,EBV-positive diffuse large B cell lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+94,EBV positive diffuse large B cell lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+95,EBV+ mucocutaneous ulcer,Other non-Hodgkin lymphoma,Immunodeficiency-associated lymphoproliferative disorders,Malignant/neoplastic
+96,Large B cell lymphoma with IRF4 rearrangement,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+97,Large B cell lymphoma with 11q aberration,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+97,High-grade B cell lymphoma with 11q aberrations,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+97,Burkitt-like lymphoma with 11q aberration,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+98,Triple-hit lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+98,High-grade B cell lymphoma with MYC and BCL2 and/or BCL6 rearrangements,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+98,Double-hit lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+99,High-grade B cell lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+99,"High grade B cell lymphoma, NOS",Large B cell lymphoma,Large B cell,Malignant/neoplastic
+100,"Large B cell lymphoma, unable to distinguish between diffuse large B cell lymphoma and follicular lymphoma ",Large B cell lymphoma,Large B cell,Malignant/neoplastic
+101,Monomorphic epitheliotropic intestinal T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+102,Intestinal T-cell lymphoma NOS,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+102,Indolent T-cell lymphoproliferative disorder of the GI tract,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+102,Indolent T-cell lymphoma of the gastrointestinal tract,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+102,Indolent clonal T-cell lymphoproliferative disorder of the GI tract,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+103,Primary cutaneous acral CD8-positive lymphoproliferative disorder,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+103,Primary cutaneous acral CD8+ T-cell lymphoma,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+104,"TFH cell lymphoma, follicular-type",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+104,"Nodal TFH cell lymphoma, follicular-type",T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+104,Follicular T-cell lymphoma,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+105,"TFH cell lymphoma, NOS",T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+105,"Nodal TFH cell lymphoma, NOS",T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+105,Nodal peripheral T-cell lymphoma with TFH phenotype,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+106,Breast implant-associated anaplastic large cell lymphoma,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+107,Hyperplasias arising in immune deficiency/dysregulation,Other non-Hodgkin lymphoma,Immunodeficiency-associated lymphoproliferative disorders,Malignant/neoplastic
+107,Florid follicular hyperplasia PTLD,Other non-Hodgkin lymphoma,Immunodeficiency-associated lymphoproliferative disorders,Malignant/neoplastic
+109,ALK-positive histiocytosis,Other non-Hodgkin lymphoma,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+110,"Follicular lymphoma, low grade",Follicular lymphoma,Mature B cell,Malignant/neoplastic
+110,"Follicular lymphoma, grade 3A",Follicular lymphoma,Mature B cell,Malignant/neoplastic
+110,"Follicular lymphoma, grade 3",Follicular lymphoma,Mature  B cell,Malignant/neoplastic
+110,"Follicular lymphoma, grade 2",Follicular lymphoma,Mature B cell,Malignant/neoplastic
+110,"Follicular lymphoma, grade 1",Follicular lymphoma,Mature  B cell,Malignant/neoplastic
+110,"Follicular lymphoma grades 1, 2 and 3A",Follicular lymphoma,Mature B cell,Malignant/neoplastic
+110,Follicular lymphoma,Follicular lymphoma,Mature  B cell,Malignant/neoplastic
+110,Classic Follicular lymphoma ,Follicular lymphoma,Mature  B cell,Malignant/neoplastic
+111,High-grade B cell lymphoma with MYC and BCL2 rearrangements,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+111,Diffuse large B cell lymphoma/high-grade B cell lymphoma with MYC and BCL2 rearrangements,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+112,Primary nodal EBV-positive T-cell/NK cell lymphoma,T cell lymphoma,Mature T/NK cell,Malignant/neoplastic
+112,EBV+ nodal T- and NK cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+113,Follicular lymphoma with uncommon features (uFL),Follicular lymphoma,Mature  B cell,Malignant/neoplastic
+114,HHV-8 and Epstein-Barr virus negative primary effusion-based lymphoma,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+114,Fluid overload associated large B cell lymphoma,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+115,Follicular lymphoma grade 3B,Follicular lymphoma,Large  B cell,Malignant/neoplastic
+115,Follicular large B cell lymphoma,Follicular lymphoma,Large B cell,Malignant/neoplastic
+116,Indolent NK cell lymphoproliferative diorder of the gastrointestinal tract,T cell lymphoma,Mature B cell,Malignant/neoplastic
+117,KSHV/HHV8-positive diffuse large B cell lymphoma,Other non-Hodgkin lymphoma,Large B cell,Malignant/neoplastic
+117,"HHV8-positive diffuse large B cell lymphoma, NOS",Other non-Hodgkin lymphoma,Large  B cell,Malignant/neoplastic
+118,KSHV/HHV8-positive germinotropic lymphoproliferative disorder,Other non-Hodgkin lymphoma,Large B cell,Malignant/neoplastic
+118,HHV8-positive germinotropic lymphoproliferative disorder,Other non-Hodgkin lymphoma,Large  B cell,Malignant/neoplastic
+119,High-grade B cell lymphoma with MYC and BCL6 rearrangements,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+120,Type 2 refractory celiac disease,Other non-Hodgkin lymphoma,Mature T/NK cell,Malignant/neoplastic
+121,Other immunodeficiency-related lymphoproliferative disorder,Other non-Hodgkin lymphoma,Immunodeficiency-associated lymphoproliferative disorders,Malignant/neoplastic
+122,Primary cutaneous marginal zone lymphoproliferative disorder,Marginal zone lymphoma,Mature B cell,Malignant/neoplastic
+122,Primary cutaneous marginal zone lymphoma,Marginal zone lymphoma,Mature  B cell,Malignant/neoplastic
+123,"Primary cutaneous peripheral T-cell lymphoma, NOS",T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+124,Primary large B cell lymphoma of the testis,Large B cell lymphoma,Large B cell,Malignant/neoplastic
+125,Primary large B cell lymphoma of the vitreoretina,Large B cell lymphoma,Large  B cell,Malignant/neoplastic
+126,"Aggressive B cell lymphoma, NOS",Large B cell lymphoma,Large B cell,Malignant/neoplastic
+127,Primary cutaneous CD8-positive aggressive epidermotropic cytotoxic T-cell lymphoma,T cell lymphoma,Mature T/ NK cell,Malignant/neoplastic
+128,B-ALL/LBL,Blastic,Precursor B cell,Malignant/neoplastic
+128,B lymphoblastic leukemia/lymphoma,Blastic,Precursor  B cell,Malignant/neoplastic
+128,B cell acute lymphoblastic leukemia,Blastic,Precursor B cell,Malignant/neoplastic
+129,T-ALL/LBL,Blastic,Precursor  B cell,Malignant/neoplastic
+129,T lymphoblastic leukemia/lymphoma,Blastic,Precursor Tcell,Malignant/neoplastic
+129,T cell acute lymphoblastic leukemia,Blastic,Precursor T-cell,Malignant/neoplastic
+130,Myeloid sarcoma,Blastic,Myeloid Neoplasm,Malignant/neoplastic
+130,Acute myeloid leukemia,Blastic,Myeloid Neoplasm,Malignant/neoplastic
+131,Mastocytosis,Myeloid,Myeloid Neoplasm,Malignant/neoplastic
+131,Mast cell disease,Myeloid,Myeloid Neoplasm,Malignant/neoplastic
+132,Myeloproliferative neoplasm,Myeloid,Myeloid Neoplasm,Malignant/neoplastic
+133,CD4+/CD56+ hematodermic neoplasm,Blastic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+133,Blastic plasmacytoid dendritic cell neoplasm,Blastic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+134,Plasmacytoma,Plasma cell neoplasm,Plasma cell neoplasm,Malignant/neoplastic
+134,Plasma cell neoplasm,Plasma cell neoplasm,Plasma cell neoplasm,Malignant/neoplastic
+134,Multiple myeloma,Plasma cell neoplasm,Plasma cell neoplasm,Malignant/neoplastic
+135,Amyloidosis,Deposits,Monocolonal Immunoglobulin deposition,Miscellaneous
+135,Amyloid deposits,Deposits,Monocolonal Immunoglobulin deposition,Miscellaneous
+135,Amyloid,Deposits,Monocolonal Immunoglobulin deposition,Miscellaneous
+136,Interdigitating dendritic cell sarcoma,Stromal,Stromal Neoplasms,Malignant/neoplastic
+136,Indeterminate dendritic cell tumor,Stromal,Stromal Neoplasms,Malignant/neoplastic
+136,Follicular dendritic cell sarcoma,Stromal,Stromal Neoplasms,Malignant/neoplastic
+136,Fibroblastic reticular cell tumour,Stromal,Stromal Neoplasms,Malignant/neoplastic
+136,EBV-positive inflammatory follicular dendritic cell sarcoma,Stromal,Stromal Neoplasms,Malignant/neoplastic
+137,Intranodal palisaded myofibroblastoma,Stromal,Stromal Neoplasms,Malignant/neoplastic
+138,Histiocytic sarcoma,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+139,LCH,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+139,Langerhans cell histiocytosis,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+140,Langerhans cell sarcoma,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+141,Erdheim-Chester disease,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+142,Juvenile xanthogranuloma,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Malignant/neoplastic
+143,Metastatic carcinoma in lymph node,Metastatic,Metastatic,Malignant/neoplastic
+143,Metastatic carcinoma,Metastatic,Metastatic,Malignant/neoplastic
+143,Carcinoma,Metastatic,Metastatic,Malignant/neoplastic
+144,Metastatic melanoma in lymph node,Metastatic,Metastatic,Malignant/neoplastic
+144,Metastatic melanoma,Metastatic,Metastatic,Malignant/neoplastic
+144,Melanoma metastasis,Metastatic,Metastatic,Malignant/neoplastic
+144,Melanoma,Metastatic,Metastatic,Malignant/neoplastic
+145,Metastatic sarcoma,Metastatic,Metastatic,Malignant/neoplastic
+146,Kaposi sarcoma,Vascular,Vascular Neoplasms,Malignant/neoplastic
+147,Vascular transformation of sinuses,Vascular,Vascular Neoplasms,Vascular/hamartomatous 
+147,Lymphangiomyomatosis,Vascular,Vascular Neoplasms,Vascular/hamartomatous 
+147,Lymphangioma,Vascular,Vascular Neoplasms,Vascular/hamartomatous 
+147,Hemangioma,Vascular,Vascular Neoplasms,Vascular/hamartomatous 
+147,Angiomyolipoma,Vascular,Vascular Neoplasms,Vascular/hamartomatous 
+147,Angiolipomatous hamartoma,Vascular,Vascular Neoplasms,Vascular/hamartomatous 
+148,Sinusoidal histiocytosis,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Sinus hyperplasia,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Sinus histiocytosis,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Reactive T-zone hyperplasia,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Reactive lymphoid hyperplasia,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Reactive lymphadenitis,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Reactive hyperplasia,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Reactive germinal center hyperplasia,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Reactive follicular hyperplasia,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Paracortical hyperplasia,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Paracortical expansion,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Monoclonal B cell lymphocytosis,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Interfollicular hyperplasia,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Indolent T-lymphoblastic proliferation,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Follicular hyperplasia,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Follicular and interfollicular hyperplasia,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Florid follicular hyerplasia,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Benign reactive lymphoid hyperplasia,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+148,Benign lymph node,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+148,Autoimmune lymphoproliferative syndrome (ALPS),Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+149,No metastatic tumor ,Reactive,Reactive,Reactive / Inflammatory 
+149,Negative for carcinoma,Reactive,Reactive,Reactive / Inflammatory 
+150,PTGC,Reactive,Reactive,Reactive / Inflammatory 
+150,Progressive transformation of germinal centers (PTGC),Reactive,Reactive,Reactive / Inflammatory 
+150,Progressive transformation of germinal centers,Reactive,Reactive,Reactive / Inflammatory 
+150,Progressive germinal center transformation,Reactive,Reactive,Reactive / Inflammatory 
+151,Paracortical hyperplasia with melanin-laden macrophages,Reactive,Reactive,Reactive / Inflammatory 
+151,Dermatopathic lymphadenopathy,Reactive,Reactive,Reactive / Inflammatory 
+151,Dermatopathic lymphadenitis,Reactive,Reactive,Reactive / Inflammatory 
+151,Dermatopathic changes,Reactive,Reactive,Reactive / Inflammatory 
+152,Kimura disease,Reactive,Reactive,Reactive / Inflammatory 
+152,Eosinophilic lymphogranuloma,Reactive,Reactive,Reactive / Inflammatory 
+152,Eosinophilic lymphofollicular granuloma,Reactive,Reactive,Reactive / Inflammatory 
+152,Eosinophilic granuloma of soft tissue,Reactive,Reactive,Reactive / Inflammatory 
+152,Angiolymphoid hyperplasia with eosinophilia,Reactive,Reactive,Reactive / Inflammatory 
+153,Necrotizing lymphadenitis,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+153,Kikuchi-Fujimoto disease,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+153,Kikuchi lymphadenitis,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+153,Histiocytic necrotizing lymphadenitis,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+154,Systemic lupus erythematosus lymphadenopathy,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+154,Lupus lymphadenopathy,Reactive,Turmor-like lesions with Tcell predominance,Reactive / Inflammatory 
+154,Lupus lymphadenitis,Reactive,Turmor-like lesions with T-cell predominance,Reactive / Inflammatory 
+155,Sinus histiocytosis with massive lymphadenopathy,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Reactive / Inflammatory 
+155,Rosai-Dorfman disease,Histiocytic/dendritic,Histiocytic/dendritic cell neoplasms,Reactive / Inflammatory 
+156,HLH,Reactive,Inflammatory,Reactive / Inflammatory 
+156,Hemophagocytic lymphohistiocytosis (HLH),Reactive,Inflammatory,Reactive / Inflammatory 
+157,IgG4-related lymphadenopathy,Reactive,Turmor-like lesions with B cell predominance,Reactive / Inflammatory 
+157,IgG4 disease ,Reactive,Turmor-like lesions with  B cell predominance,Reactive / Inflammatory 
+158,Rheumatoid lymphadenitis,Reactive,Inflammatory,Reactive / Inflammatory 
+159,Drug-induced lymphadenopathy ,Reactive,Inflammatory,Reactive / Inflammatory 
+160,Cat-scratch disease ,Reactive,Infectious,Infectious Lymphadenitis
+161,Toxoplasma lymphadenitis,Reactive,Infectious,Infectious Lymphadenitis
+162,Infectious mononucleosis ,Reactive,Infectious,Infectious Lymphadenitis
+162,Epstein Barr virus (EBV) infection,Reactive,Infectious,Infectious Lymphadenitis
+163,HIV-associated lymphadenopathy,Reactive,Infectious,Infectious Lymphadenitis
+164,Syphilitic lymphadenitis,Reactive,Infectious,Infectious Lymphadenitis
+164,Luetic lymphadenitis,Reactive,Infectious,Infectious Lymphadenitis
+165,Sarcoidosis involving lymph node,Reactive,Infectious,Reactive / Inflammatory 
+165,Sarcoid-like granulomatous lymphadenitis,Reactive,Infectious,Reactive / Inflammatory 
+165,Granulomatous reaction,Reactive,Infectious,Reactive / Inflammatory 
+165,Granulomatous lymphadenitis ,Reactive,Infectious,Reactive / Inflammatory 
+165,Granulomatous inflammation of lymph node,Reactive,Infectious,Reactive / Inflammatory 
+165,Granulomata ,Reactive,Infectious,Reactive / Inflammatory 
+165,Granuloma ,Reactive,Infectious,Reactive / Inflammatory 
+165,Fungal lymphadenitis,Reactive,Infectious,Infectious Lymphadenitis
+166,Mycobacterial lymphadenitis,Reactive,Infectious,Infectious Lymphadenitis
+166,Acid fast organisms,Reactive,Infectious,Infectious Lymphadenitis
+167,Parasitic infections,Reactive,Infectious,Infectious Lymphadenitis
+168,Systemic chronic active EBV disease,Reactive,Infectious,Infectious Lymphadenitis
+169,Unicentric Castleman disease,Reactive,Turmor-like lesions with  B cell predominance,Reactive / Inflammatory 
+169,Systemic Castleman disease,Reactive,Turmor-like lesions with B cell predominance,Reactive / Inflammatory 
+169,Multicentric Castleman disease,Reactive,Turmor-like lesions with  B cell predominance,Reactive / Inflammatory 
+169,Localized Castleman disease,Reactive,Turmor-like lesions with B cell predominance,Reactive / Inflammatory 
+169,Giant lymph node hyperplasia,Reactive,Turmor-like lesions with  B cell predominance,Reactive / Inflammatory 
+169,Castleman disease,Reactive,Turmor-like lesions with B cell predominance,Reactive / Inflammatory 
+169,Angiofollicular lymph node hyperplasia,Reactive,Turmor-like lesions with  B cell predominance,Reactive / Inflammatory 
+170,Hyalinization ,Reactive,Reactive,Miscellaneous
+171,Anthracosis,Reactive,Reactive,Miscellaneous
+172,Lipofuscin deposition,Reactive,Reactive,Miscellaneous
+173,Silicone lymphadenopathy,Reactive,Inflammatory,Miscellaneous
+174,Epithelial/mesothelial inclusions,Reactive,Reactive,Miscellaneous
+175,Necrosis,Necrosis,Necrosis,Miscellaneous
+175,Infarct,Necrosis,Necrosis,Miscellaneous
+
+PATHOLOGY REPORT:
+{input_text}
+
+JSON OUTPUT:

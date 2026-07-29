@@ -172,7 +172,7 @@ def standardize_report_text(text):
     return standardized.strip()
 
 
-def expand_identifier_span(text, start, end, id_chars=set("0123456789-/#().:+")):
+def expand_identifier_span(text, start, end, id_chars=set("0123456789-/#().:+ ")):
     """
     Expand ID-like entities to include adjacent identifier punctuation or digits.
 
@@ -227,8 +227,8 @@ def deidentify_text(text, deid_pipeline, min_confidence_threshold=0.75):
         512  # safety cap for BERT/RoBERTa variants
     )
 
-    chunk_tokens = max_model_tokens - 64
-    overlap_tokens = 128
+    chunk_tokens = max_model_tokens - 32
+    overlap_tokens = 64
 
     # Tokenize entire document without truncation
     encoding = tokenizer(
@@ -411,7 +411,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--min-confidence-threshold",
         type=float,
-        default=0.7,
+        default=0.5,
         help="Minimum entity confidence required before replacement",
     )
     return parser
