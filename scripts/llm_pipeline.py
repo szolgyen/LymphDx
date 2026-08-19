@@ -1,5 +1,10 @@
 import argparse
 import logging
+import os
+
+# Must be set before any CUDA context is created (i.e. before torch is imported).
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 from datetime import datetime
 from pathlib import Path
 from typing import Any

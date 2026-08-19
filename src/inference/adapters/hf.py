@@ -98,44 +98,51 @@ class HFAdapter(BaseModelAdapter):
         tokenizer = self._tokenizer
         model = self._model
 
-        decoder_output = self._decoder.generate(
-            model=model,
-            tokenizer=tokenizer,
-            prompt=prompt,
-            max_new_tokens=self.max_new_tokens,
-            temperature=self.temperature,
-        )
-        if decoder_output is not None:
-            # Decoder handled generation; capture decorated prompt if available
-            self._last_decorated_prompt = self._decoder.get_last_decorated_prompt()
-            return decoder_output
+        try:
+            decoder_output = self._decoder.generate(
+                model=model,
+                tokenizer=tokenizer,
+                prompt=prompt,
+                max_new_tokens=self.max_new_tokens,
+                temperature=self.temperature,
+            )
+            if decoder_output is not None:
+                return decoder_output
 
-        prompt_for_model = self._decoder.prepare_prompt(prompt, tokenizer)
-        self._last_decorated_prompt = prompt_for_model
-        encoded = tokenizer(prompt_for_model, return_tensors="pt")
+            prompt_for_model = self._decoder.prepare_prompt(prompt, tokenizer)
+            encoded = tokenizer(prompt_for_model, return_tensors="pt")
 
-        # With non-sharded models, move inputs to model device.
-        model_device = getattr(model, "device", None)
-        if model_device is not None and str(model_device) != "meta":
-            encoded = {key: value.to(model_device) for key, value in encoded.items()}
+            # With non-sharded models, move inputs to model device.
+            model_device = getattr(model, "device", None)
+            if model_device is not None and str(model_device) != "meta":
+                encoded = {
+                    key: value.to(model_device) for key, value in encoded.items()
+                }
 
-        generate_kwargs: dict[str, Any] = {
-            "max_new_tokens": self.max_new_tokens,
-            "do_sample": self.temperature > 0,
-            "temperature": self.temperature if self.temperature > 0 else None,
-            "pad_token_id": tokenizer.pad_token_id,
-        }
-        generate_kwargs.update(self._decoder.get_generation_kwargs(tokenizer))
-        generate_kwargs = {
-            key: value for key, value in generate_kwargs.items() if value is not None
-        }
+            generate_kwargs: dict[str, Any] = {
+                "max_new_tokens": self.max_new_tokens,
+                "do_sample": self.temperature > 0,
+                "temperature": self.temperature if self.temperature > 0 else None,
+                "pad_token_id": tokenizer.pad_token_id,
+            }
+            generate_kwargs.update(self._decoder.get_generation_kwargs(tokenizer))
+            generate_kwargs = {
+                key: value
+                for key, value in generate_kwargs.items()
+                if value is not None
+            }
 
-        with torch.no_grad():
-            output_ids = model.generate(**encoded, **generate_kwargs)
+            with torch.no_grad():
+                output_ids = model.generate(**encoded, **generate_kwargs)
 
-        input_len = encoded["input_ids"].shape[1]
-        generated_ids = output_ids[0][input_len:]
-        return tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+            input_len = encoded["input_ids"].shape[1]
+            generated_ids = output_ids[0][input_len:]
+            return tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+        finally:
+            # Release per-call KV cache/activations so fragmentation doesn't
+            # accumulate across many sequential reports in the same process.
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     @staticmethod
     def _format_prompt_for_json(prompt: str, tokenizer: Any) -> str:
@@ -202,7 +209,7 @@ class HFAdapter(BaseModelAdapter):
             except json.JSONDecodeError:
                 pass
 
-        preview = candidate[:400].replace("\n", "\\n")
+        preview = candidate[:1024].replace("\n", "\\n")
         raise SchemaValidationError(
             "HF output is not valid JSON and no JSON object could be extracted. "
             f"Output preview: {preview!r}"
