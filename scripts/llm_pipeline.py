@@ -26,9 +26,9 @@ CONFIG_DEFAULTS: dict[str, Any] = {
     "backend": "hf",
     "model": "google/medgemma-4b-it",
     "decoder": "none",
-    "schema": "v2",
+    "schema": "v5",
     "input_file": None,
-    "diagnosis_terms_file": "configs/extraction/diagnosis_terms_v1.txt",
+    "diagnosis_dictionary": "inputs/LN_Dx_dictionary_codes_20260630.xlsx",
     "output_dir": "outputs/predictions",
     "log_level": "INFO",
 }
@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--config",
-        default="configs/run_pipeline.yaml",
+        default="configs/llm_pipeline.yaml",
         help="Path to YAML config file containing all pipeline options",
     )
     return parser.parse_args()
@@ -105,7 +105,7 @@ def main() -> int:
             config["decoder"],
         )
         if config["decoder"] != "none":
-            allowed_diagnoses = load_diagnosis_terms(config["diagnosis_terms_file"])
+            allowed_diagnoses = load_diagnosis_terms(config["diagnosis_dictionary"])
         else:
             allowed_diagnoses = None
         reports = load_reports(config["input_file"])
