@@ -1,11 +1,26 @@
 # Evaluation configuration
 # Use this file with:
-#   .venvs/heme-llm-hf/bin/python scripts/evaluation.py
+#   python scripts/evaluate.py <run_name>
+# where <run_name> is the experiment name (e.g., '20260701_100301')
 
 # Paths
-input_excel_file: ...
-input_jsonl_file: ...
-output_folder: ...
+validation_file: ...
+diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260630.xlsx
+
+# Ontology matching mode
+ontology_matching: true
+
+# Ontology matching models
+models:
+  embedding_model: cambridgeltl/SapBERT-from-PubMedBERT-fulltext
+  reranker_model: ncbi/MedCPT-Cross-Encoder
+
+# Matching parameters
+matching:
+  retrieval_k: 50
+  acceptance_threshold: -10.0 # (essentially turned off for evaluation)
+  use_prefilter: true
+  top_n: 5
 
 # Parameters
 parameters:
@@ -15,16 +30,25 @@ parameters:
   GT_SHEET_NAME: "Results"
   EXCLUDE_FAILED: true
 
-# Output files
+# Group Terminology (customize the display names for each group)
+group_terminology:
+  group_1: "Group1"
+  group_2: "Group2"
+  group_3: "Group3"
+
+# Output files (enable/disable outputs by setting true/false)
 output_files:
-  OUTPUT_SUMMARY: "evaluation_summary.json"
-  OUTPUT_REPORT_LEVEL: "report_level_metrics.csv"
-  OUTPUT_HARD_CASES: "hard_case_metrics.csv"
-  OUTPUT_ERROR_ANALYSIS: "error_analysis.json"
-  OUTPUT_RARE_DIAGNOSIS: "rare_diagnosis_metrics.csv"
-  OUTPUT_THRESHOLDS: "threshold_metrics.csv"
-  OUTPUT_THRESHOLD_PLOT: "threshold_accuracy_coverage.png"
-  OUTPUT_COVERAGE_ACCURACY_PLOT: "accuracy_coverage_plot.png"
-  OUTPUT_CONFUSION_MATRIX_GROUP1: "confusion_matrix_group1.png"
-  OUTPUT_CONFUSION_MATRIX_GROUP2: "confusion_matrix_group2.png"
-  OUTPUT_CONFUSION_MATRIX_GROUP3: "confusion_matrix_group3.png"
+  OUTPUT_SUMMARY: true
+  OUTPUT_REPORT_LEVEL: true
+  OUTPUT_HARD_CASES: true
+  OUTPUT_ERROR_ANALYSIS: true
+  OUTPUT_RARE_DIAGNOSIS: true
+  OUTPUT_THRESHOLDS: true
+  OUTPUT_THRESHOLD_PLOT: true
+  OUTPUT_COVERAGE_ACCURACY_PLOT: true
+  OUTPUT_ACCURACY_BREAKDOWN_GROUP_1: true
+  OUTPUT_ACCURACY_BREAKDOWN_GROUP_2: true
+  OUTPUT_ACCURACY_BREAKDOWN_GROUP_3: true
+  OUTPUT_CONFUSION_MATRIX_GROUP_1: true
+  OUTPUT_CONFUSION_MATRIX_GROUP_2: true
+  OUTPUT_CONFUSION_MATRIX_GROUP_3: true
