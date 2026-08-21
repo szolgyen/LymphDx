@@ -1,0 +1,207 @@
+# Configuration file for comparing evaluation results across multiple models
+
+# Use this file with:
+#   python scripts/compare.py
+
+# Diagnosis dictionary path
+diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260630.xlsx
+
+# Results directories and summary file configuration
+results:
+  - outputs/20260723_105303/evaluation
+  - outputs/20260723_105530/evaluation
+  - outputs/20260707_173612/evaluation
+  - outputs/20260723_105919/evaluation
+  - outputs/20260716_155712/evaluation
+  - outputs/20260716_112257/evaluation
+
+summary_file: evaluation_summary.json
+error_analysis_file: error_analysis.json
+
+# Metrics to extract from the evaluation summary
+metrics:
+  - primary_top1_accuracy
+  - group1_top1_accuracy
+  - group2_top1_accuracy
+  - group3_top1_accuracy
+  - group1_top3_accuracy
+  - group2_top3_accuracy
+  - group3_top3_accuracy
+  - group1_top5_accuracy
+  - group2_top5_accuracy
+  - group3_top5_accuracy
+  - differential_mentioned_mcc
+  - is_definitive_mcc
+  - prior_malignancy_mcc
+  - concurrent_malignancy_mcc
+  - group1_top1_accuracy_given_correct
+  - group2_top1_accuracy_given_correct
+  - group3_top1_accuracy_given_correct
+
+# Error analysis metrics to extract from error_analysis.json
+error_analysis_metrics:
+  - fraction_none
+  - fraction_one_D
+  - fraction_one_N
+  - fraction_one_P
+  - fraction_one_C
+  - fraction_two_DN
+  - fraction_two_DP
+  - fraction_two_DC
+  - fraction_two_NP
+  - fraction_two_NC
+  - fraction_two_PC
+  - fraction_three_DNP
+  - fraction_three_DNC
+  - fraction_three_DPC
+  - fraction_three_NPC
+  - fraction_all_four
+
+# Name mappings for results directories and metrics
+name_mappings:
+  # Result directories
+  "20260723_105303": "Medgemma-4b-it-om"
+  "20260707_173612": "Medgemma-1.5-4b-it-om"
+  "20260716_155712": "Medgemma-27b-it-om"
+  "20260723_105530": "Medgemma-4b-it-cd"
+  "20260723_105919": "Medgemma-1.5-4b-it-cd"
+  "20260716_112257": "Medgemma-27b-it-cd"
+
+  # Metrics
+  "primary_top1_accuracy": "Primary diagnosis\nAccuracy"
+  "group1_top1_accuracy": "Group 1 (our)\nClass-accuracy"
+  "group2_top1_accuracy": "Group 2 (iCLASS-i)\nClass-accuracy"
+  "group3_top1_accuracy": "Disease Behavior​\nClass-accuracy"
+  "group1_top3_accuracy": "Group 1 (our)\nTop-3 Accuracy"
+  "group2_top3_accuracy": "Group 2 (iCLASS-i)\nTop-3 Accuracy"
+  "group3_top3_accuracy": "Disease Behavior​\nTop-3 Accuracy"
+  "group1_top5_accuracy": "Group 1 (our)\nTop-5 Accuracy"
+  "group2_top5_accuracy": "Group 2 (iCLASS-i)\nTop-5 Accuracy"
+  "group3_top5_accuracy": "Disease Behavior​\nTop-5 Accuracy"
+  "differential_mentioned_mcc": "Differential\nMentioned MCC"
+  "is_definitive_mcc": "Is Definitive\nMCC"
+  "prior_malignancy_mcc": "Prior\nMalignancy MCC"
+  "concurrent_malignancy_mcc": "Concurrent\nMalignancy MCC"
+  "group1_top1_accuracy_given_correct": "Top-1 Accuracy\nGiven Group 1 Correct"
+  "group2_top1_accuracy_given_correct": "Top-1 Accuracy\nGiven Group 2 Correct"
+  "group3_top1_accuracy_given_correct": "Top-1 Accuracy\nGiven Group 3 Correct"
+  "fraction_none": "None"
+  "fraction_one_D": "D Only"
+  "fraction_one_N": "N Only"
+  "fraction_one_P": "P Only"
+  "fraction_one_C": "C Only"
+  "fraction_two_DN": "D+N"
+  "fraction_two_DP": "D+P"
+  "fraction_two_DC": "D+C"
+  "fraction_two_NP": "N+P"
+  "fraction_two_NC": "N+C"
+  "fraction_two_PC": "P+C"
+  "fraction_three_DNP": "D+N+P"
+  "fraction_three_DNC": "D+N+C"
+  "fraction_three_DPC": "D+P+C"
+  "fraction_three_NPC": "N+P+C"
+  "fraction_all_four": "D+N+P+C"
+
+# Figure configurations
+figures:
+  table:
+    output: outputs/compare/performance_comparison.png
+    font_size: 10
+    scale_x: 1.2
+    scale_y: 2
+    dpi: 300
+    columns:
+      - "Primary diagnosis\nAccuracy"
+      - "Group 1 (our)\nClass-accuracy"
+      - "Group 2 (iCLASS-i)\nClass-accuracy"
+      - "Disease Behavior​\nClass-accuracy"
+
+  grouped_bar:
+    output: outputs/compare/performance_comparison_bar.png
+    title: "Comparing Model Performances Across Groups"
+    ylabel: "Accuracy"
+    figsize: [10, 6]
+    dpi: 300
+    columns:
+      - "Primary diagnosis\nAccuracy"
+      - "Group 1 (our)\nClass-accuracy"
+      - "Group 2 (iCLASS-i)\nClass-accuracy"
+      - "Disease Behavior​\nClass-accuracy"
+
+  mcc_metrics:
+    output: outputs/compare/mcc_metrics_comparison.png
+    title: "MCC Metrics Comparison"
+    ylabel: "Matthews Correlation Coefficient"
+    figsize: [12, 6]
+    dpi: 300
+    columns:
+      - "Differential\nMentioned MCC"
+      - "Is Definitive\nMCC"
+      - "Prior\nMalignancy MCC"
+      - "Concurrent\nMalignancy MCC"
+
+  accuracy_given_correct:
+    output: outputs/compare/accuracy_given_correct_comparison.png
+    title: "Accuracy Given Correct Comparison"
+    ylabel: "Accuracy"
+    figsize: [10, 6]
+    dpi: 300
+    columns:
+      - "Top-1 Accuracy\nGiven Group 1 Correct"
+      - "Top-1 Accuracy\nGiven Group 2 Correct"
+      - "Top-1 Accuracy\nGiven Group 3 Correct"
+
+  iclassi_accuracy:
+    output: outputs/compare/iclassi_accuracy_comparison.png
+    title: "Class Accuracy Hierarchy Comparison"
+    ylabel: "Accuracy"
+    figsize: [10, 6]
+    dpi: 300
+    models:  # Only include non-guidance models
+      - "Medgemma-4b-it"
+      - "Medgemma-1.5-4b-it"
+      - "Medgemma-27b-it"
+
+  error_analysis:
+    output: outputs/compare/error_analysis_comparison.png
+    title: "Error Analysis Comparison (Mutually Exclusive Categories)"
+    ylabel: "Fraction of Errors"
+    figsize: [14, 6]
+    dpi: 300
+    columns:
+      - "None"
+      - "D Only"
+      - "N Only"
+      - "P Only"
+      - "C Only"
+      - "D+N"
+      - "D+P"
+      - "D+C"
+      - "N+P"
+      - "N+C"
+      - "P+C"
+      - "D+N+P"
+      - "D+N+C"
+      - "D+P+C"
+      - "N+P+C"
+      - "D+N+P+C"
+
+  group_breakdown_matrices:
+    results:
+      - outputs/20260723_105303/evaluation
+      - outputs/20260723_105530/evaluation
+      - outputs/20260707_173612/evaluation
+      - outputs/20260723_105919/evaluation
+      - outputs/20260716_155712/evaluation
+      - outputs/20260716_112257/evaluation
+    output_group1: outputs/compare/group1_accuracy_breakdown_heatmap.png
+    output_group2: outputs/compare/group2_accuracy_breakdown_heatmap.png
+    output_group3: outputs/compare/group3_accuracy_breakdown_heatmap.png
+    group1_title: "Group 1 (our)"
+    group2_title: "Group 2 (iCLASS-i)"
+    group3_title: "Disease Behavior"
+    figsize: [12, 10]
+    dpi: 300
+    cmap: RdYlGn
+    vmin: 0
+    vmax: 1
