@@ -1,4 +1,3 @@
-import argparse
 import json
 import logging
 from collections import defaultdict
@@ -18,12 +17,12 @@ class OntologyMatcher:
     def __init__(
         self,
         ontology,
-        embedding_model="cambridgeltl/SapBERT-from-PubMedBERT-fulltext",  # "vinid/plip",  # "cambridgeltl/SapBERT-from-PubMedBERT-fulltext",  # "neuml/pubmedbert-base-embeddings",
-        reranker_model="ncbi/MedCPT-Cross-Encoder",
-        retrieval_k=50,
-        acceptance_threshold=0.55,
-        use_prefilter=True,
-        code_to_groups=None,
+        embedding_model,
+        reranker_model,
+        retrieval_k,
+        acceptance_threshold,
+        use_prefilter,
+        code_to_groups,
     ):
         self.ontology = ontology
         self.retrieval_k = retrieval_k
@@ -244,102 +243,147 @@ def load_ontology(excel_file):
                 }
             )
 
-    print(
+    logger.info(
         f"Loaded {len(ontology)} synonym entries for {len(grouped)} ontology concepts"
     )
 
-    return ontology, code_to_groups
+    diagnosis_to_code = {}
+
+    for _, row in df.iterrows():
+        code = row["Code"]
+        diagnosis = str(row["Diagnosis"]).strip()
+
+        diagnosis_to_code[diagnosis] = code
+
+    return ontology, code_to_groups, diagnosis_to_code
 
 
-def process_jsonl(
+def iter_records(input_file):
+    if input_file.endswith(".jsonl"):
+        with open(input_file) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    yield json.loads(line)
+
+    elif input_file.endswith(".json"):
+        with open(input_file) as f:
+            yield from json.load(f)
+
+    else:
+        raise ValueError(f"Unsupported input file format: {input_file}")
+
+
+def build_diagnosis_results(results, prefix):
+    if not results:
+        return {
+            "top_1": {
+                f"{prefix}_code": None,
+                f"{prefix}_name": None,
+                f"{prefix}_score": None,
+                f"{prefix}_group_1": None,
+                f"{prefix}_group_2": None,
+                f"{prefix}_group_3": None,
+            }
+        }
+
+    output = {}
+
+    for rank_key, result in results.items():
+        output[rank_key] = {
+            f"{prefix}_code": result["code"],
+            f"{prefix}_name": result["name"],
+            f"{prefix}_score": result["score"],
+            f"{prefix}_group_1": result.get("group_1"),
+            f"{prefix}_group_2": result.get("group_2"),
+            f"{prefix}_group_3": result.get("group_3"),
+        }
+
+    return output
+
+
+def process_record(
+    record,
+    matcher,
+    top_n,
+    ontology_matching,
+    code_to_groups,
+    diagnosis_to_code,
+):
+    primary = record.get("primary_diagnosis")
+    primary_code = diagnosis_to_code.get(primary)
+
+    if ontology_matching:
+        results = matcher.match(primary, top_n=top_n)
+    else:
+        groups = code_to_groups.get(primary_code, {})
+        results = {
+            "top_1": {
+                "code": primary_code,
+                "name": primary,
+                "score": None,
+                "group_1": groups.get("Diagnostic group 1"),
+                "group_2": groups.get("Diagnostic group 2"),
+                "group_3": groups.get("Diagnostic group 3"),
+            }
+        }
+
+    record["valid_primary_diagnoses"] = build_diagnosis_results(
+        results,
+        prefix="valid_primary_diagnosis",
+    )
+
+    for container in record.get("containers", []):
+        diagnosis = container.get("diagnosis")
+        diagnosis_code = diagnosis_to_code.get(diagnosis)
+
+        if ontology_matching:
+            results = matcher.match(diagnosis, top_n=top_n)
+        else:
+            groups = code_to_groups.get(diagnosis_code, {})
+            results = {
+                "top_1": {
+                    "code": diagnosis_code,
+                    "name": diagnosis,
+                    "score": None,
+                    "group_1": groups.get("Diagnostic group 1"),
+                    "group_2": groups.get("Diagnostic group 2"),
+                    "group_3": groups.get("Diagnostic group 3"),
+                }
+            }
+
+        container["valid_diagnoses"] = build_diagnosis_results(
+            results,
+            prefix="valid_diagnosis",
+        )
+
+    return record
+
+
+def process_json(
     input_file,
     output_file,
     matcher,
-    top_n=5,
+    top_n,
+    ontology_matching,
+    code_to_groups,
+    diagnosis_to_code,
 ):
-    logger.info("Processing predictions from %s", input_file)
-    n_cases = 0
-
-    with open(input_file, "r") as fin, open(output_file, "w") as fout:
-        for line in fin:
-            line = line.strip()
-
-            if not line:
-                continue
-
-            record = json.loads(line)
-
-            primary = record.get("primary_diagnosis")
-
-            results = matcher.match(primary, top_n=top_n)
-
-            record["valid_primary_diagnoses"] = {}
-
-            if not results:
-                # Add placeholder structure for top_1 when no matches
-                record["valid_primary_diagnoses"]["top_1"] = {
-                    "valid_primary_diagnosis_code": None,
-                    "valid_primary_diagnosis_name": None,
-                    "valid_primary_diagnosis_score": None,
-                    "valid_primary_diagnosis_group_1": None,
-                    "valid_primary_diagnosis_group_2": None,
-                    "valid_primary_diagnosis_group_3": None,
-                }
-            else:
-                for rank_key, result in results.items():
-                    record["valid_primary_diagnoses"][rank_key] = {
-                        "valid_primary_diagnosis_code": result["code"],
-                        "valid_primary_diagnosis_name": result["name"],
-                        "valid_primary_diagnosis_score": result["score"],
-                        "valid_primary_diagnosis_group_1": result.get("group_1"),
-                        "valid_primary_diagnosis_group_2": result.get("group_2"),
-                        "valid_primary_diagnosis_group_3": result.get("group_3"),
-                    }
-
-            containers = record.get("containers", [])
-
-            for container in containers:
-                diagnosis = container.get("diagnosis")
-
-                results = matcher.match(diagnosis, top_n=top_n)
-
-                container["valid_diagnoses"] = {}
-
-                if not results:
-                    # Add placeholder structure for top_1 when no matches
-                    container["valid_diagnoses"]["top_1"] = {
-                        "valid_diagnosis_code": None,
-                        "valid_diagnosis_name": None,
-                        "valid_diagnosis_score": None,
-                        "valid_diagnosis_group_1": None,
-                        "valid_diagnosis_group_2": None,
-                        "valid_diagnosis_group_3": None,
-                    }
-                else:
-                    for rank_key, result in results.items():
-                        container["valid_diagnoses"][rank_key] = {
-                            "valid_diagnosis_code": result["code"],
-                            "valid_diagnosis_name": result["name"],
-                            "valid_diagnosis_score": result["score"],
-                            "valid_diagnosis_group_1": result.get("group_1"),
-                            "valid_diagnosis_group_2": result.get("group_2"),
-                            "valid_diagnosis_group_3": result.get("group_3"),
-                        }
-
-            fout.write(
-                json.dumps(
-                    record,
-                    ensure_ascii=False,
-                )
-                + "\n"
+    with open(output_file, "w") as fout:
+        for n_cases, record in enumerate(iter_records(input_file), start=1):
+            record = process_record(
+                record=record,
+                matcher=matcher,
+                top_n=top_n,
+                ontology_matching=ontology_matching,
+                code_to_groups=code_to_groups,
+                diagnosis_to_code=diagnosis_to_code,
             )
 
-            n_cases += 1
+            fout.write(json.dumps(record, ensure_ascii=False) + "\n")
 
             if n_cases % 100 == 0:
-                print(f"Processed {n_cases} cases...")
-
-    print(f"Finished. Processed {n_cases} cases.")
+                logger.info(f"Processed {n_cases} cases...")
 
 
 def load_config(config_path: str) -> dict:
@@ -356,46 +400,54 @@ def load_config(config_path: str) -> dict:
     return config
 
 
-def argparse_setup():
-    parser = argparse.ArgumentParser(
-        description="Match ontology terms in prediction JSONL using embeddings and reranking",
-    )
-    parser.add_argument(
-        "--config",
-        default="configs/ontology.yaml",
-        help="Path to ontology configuration YAML file",
-    )
+def main(run_name: str, config: dict) -> None:
+    """Main entry point for ontology matching.
 
-    args = parser.parse_args()
+    Args:
+        run_name: Name of the run.
+        config: Configuration dict with ontology settings.
 
-    return args.config
+    Raises:
+        ValueError: If run_name or config is missing.
+    """
+    if not run_name:
+        logger.error("run_name must be provided to construct input/output paths.")
+        raise ValueError("run_name must be provided to construct input/output paths.")
+    if not config:
+        logger.error("config must be provided.")
+        raise ValueError("config must be provided.")
 
+    logger.info("Starting ontology matching for run: %s", run_name)
 
-def main():
-    logger.info("Starting ontology matching")
-    config_path = argparse_setup()
+    # Check if we are in ontology matching mode
+    ontology_matching = config.get("ontology_matching", False)
 
-    config = load_config(config_path)
+    input_file = f"outputs/{run_name}/predictions_{run_name}.jsonl"
+    output_file = f"outputs/{run_name}/ontology_{run_name}.jsonl"
 
-    # Load ontology
-    logger.info("Loading ontology from config")
-    ontology, code_to_groups = load_ontology(config["ontology_file"])
-    logger.info("Loaded %d ontology concepts", len(ontology))
-
-    logger.info("Initializing ontology matcher")
-    matcher = OntologyMatcher(
-        ontology=ontology,
-        retrieval_k=config["matching"]["retrieval_k"],
-        acceptance_threshold=config["matching"]["acceptance_threshold"],
-        use_prefilter=config["matching"]["use_prefilter"],
-        code_to_groups=code_to_groups,
+    ontology, code_to_groups, diagnosis_to_code = load_ontology(
+        config["diagnosis_dictionary"]
     )
 
-    logger.info("Processing JSONL files")
-    process_jsonl(
-        config.get("input_file"),
-        config.get("output_file"),
+    matcher = None
+    if ontology_matching:
+        logger.info("Initializing ontology matcher")
+        matcher = OntologyMatcher(
+            ontology=ontology,
+            embedding_model=config["models"]["embedding_model"],
+            reranker_model=config["models"]["reranker_model"],
+            retrieval_k=config["matching"]["retrieval_k"],
+            acceptance_threshold=config["matching"]["acceptance_threshold"],
+            use_prefilter=config["matching"]["use_prefilter"],
+            code_to_groups=code_to_groups,
+        )
+
+    process_json(
+        input_file,
+        output_file,
         matcher,
         top_n=config["matching"]["top_n"],
+        ontology_matching=ontology_matching,
+        code_to_groups=code_to_groups,
+        diagnosis_to_code=diagnosis_to_code,
     )
-    logger.info("Ontology matching completed successfully")

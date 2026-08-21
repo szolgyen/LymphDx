@@ -5,7 +5,7 @@
 # Inference backend: hf | *vllm | *sglang | *ollama
 backend: hf
 
-# Model identifier: google/medgemma-4b-it | google/medgemma-1.5-4b-it | aaditya/Llama3-OpenBioLLM-8B
+# Model identifier: google/medgemma-4b-it | google/medgemma-1.5-4b-it | google/medgemma-27b-it | google/medgemma-4b-pt |aaditya/Llama3-OpenBioLLM-8B
 model: google/medgemma-1.5-4b-it
 
 # Decoder: none | guidance | outlines
@@ -19,7 +19,7 @@ schema: v5
 input_file: ...
 
 # Text file with one allowed diagnosis per line
-diagnosis_terms_file: inputs/LN_Dx_dictionary_codes_20260630.xlsx
+diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260630.xlsx
 
 # Directory for extracted JSON outputs
 output_dir: outputs/
