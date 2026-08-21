@@ -108,8 +108,6 @@ def run_evaluation(
         threshold_df = analysis_functions.compute_threshold_sweep_metrics(
             report_df, params.get("THRESHOLD_STEPS")
         )
-    else:
-        threshold_df = None
 
         # Compute AUC for accuracy-coverage tradeoff
         for k in params.get("TOP_K_VALUES"):
@@ -119,6 +117,8 @@ def run_evaluation(
                     threshold_df[f"accuracy_top{k}"],
                 )
             )
+    else:
+        threshold_df = None
 
     # Write all outputs
     logger.info("Writing evaluation results to %s", output_dir)
