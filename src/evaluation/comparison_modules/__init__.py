@@ -5,7 +5,7 @@ from .grouped_bar import GroupedBarFigure
 from .mcc_metrics import MCCMetricsFigure
 from .accuracy_given_correct import AccuracyGivenCorrectFigure
 from .error_analysis import ErrorAnalysisFigure
-from .iclassi_accuracy import iCLASSiAccuracyFigure
+from .group_accuracy import GroupAccuracyFigure
 from .group_breakdown_matrices import GroupBreakdownMatricesFigure
 
 __all__ = [
@@ -14,6 +14,6 @@ __all__ = [
     "MCCMetricsFigure",
     "AccuracyGivenCorrectFigure",
     "ErrorAnalysisFigure",
-    "iCLASSiAccuracyFigure",
+    "GroupAccuracyFigure",
     "GroupBreakdownMatricesFigure",
 ]

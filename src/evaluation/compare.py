@@ -14,11 +14,11 @@ import yaml
 from .comparison_modules import (
     AccuracyGivenCorrectFigure,
     ErrorAnalysisFigure,
+    GroupAccuracyFigure,
     GroupBreakdownMatricesFigure,
     GroupedBarFigure,
     MCCMetricsFigure,
     TableFigure,
-    iCLASSiAccuracyFigure,
 )
 
 CONFIG_FILE = "configs/comparison.yaml"
@@ -136,8 +136,8 @@ def generate_figures(df: pd.DataFrame, config: dict) -> None:
         agc_fig.generate(df, name_mappings)
 
     if "iclassi_accuracy" in figures_config:
-        iclassi_fig = iCLASSiAccuracyFigure(figures_config["iclassi_accuracy"])
-        iclassi_fig.generate(df, name_mappings)
+        group_fig = GroupAccuracyFigure(figures_config["iclassi_accuracy"])
+        group_fig.generate(df, name_mappings)
 
     if "error_analysis" in figures_config:
         error_fig = ErrorAnalysisFigure(figures_config["error_analysis"])
