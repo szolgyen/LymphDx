@@ -99,6 +99,29 @@ def run_evaluation(
         report_df, "gt_group3", group_terminology
     )
 
+    # Build container-level DataFrame
+    logger.info("Building container-level DataFrame")
+    container_df = dataframe_builders.build_container_level_dataframe(report_df)
+
+    # Compute container-level group accuracy breakdowns
+    if len(container_df) > 0:
+        logger.info("Computing container-level accuracy metrics")
+        container_group1_accuracy_df = analysis_functions.compute_accuracy_by_group(
+            container_df, "gt_container_group1", group_terminology
+        )
+        container_group2_accuracy_df = analysis_functions.compute_accuracy_by_group(
+            container_df, "gt_container_group2", group_terminology
+        )
+        container_group3_accuracy_df = analysis_functions.compute_accuracy_by_group(
+            container_df, "gt_container_group3", group_terminology
+        )
+    else:
+        logger.warning("No container data available; skipping container-level analysis")
+        container_df = pd.DataFrame()
+        container_group1_accuracy_df = pd.DataFrame()
+        container_group2_accuracy_df = pd.DataFrame()
+        container_group3_accuracy_df = pd.DataFrame()
+
     rare_diagnosis_df = analysis_functions.compute_rare_diagnosis_metrics(
         report_df, params.get("RARE_DIAGNOSIS_THRESHOLD"), group_terminology
     )
@@ -133,6 +156,10 @@ def run_evaluation(
         group1_accuracy_df=group1_accuracy_df,
         group2_accuracy_df=group2_accuracy_df,
         group3_accuracy_df=group3_accuracy_df,
+        container_df=container_df,
+        container_group1_accuracy_df=container_group1_accuracy_df,
+        container_group2_accuracy_df=container_group2_accuracy_df,
+        container_group3_accuracy_df=container_group3_accuracy_df,
         output_files_enabled=output_files_enabled,
         group_terminology=group_terminology,
         dictionary_excel_path=dictionary_excel_path,
@@ -151,6 +178,10 @@ def _write_evaluation_outputs(
     group1_accuracy_df: pd.DataFrame,
     group2_accuracy_df: pd.DataFrame,
     group3_accuracy_df: pd.DataFrame,
+    container_df: pd.DataFrame,
+    container_group1_accuracy_df: pd.DataFrame,
+    container_group2_accuracy_df: pd.DataFrame,
+    container_group3_accuracy_df: pd.DataFrame,
     output_files_enabled: dict[str, bool],
     group_terminology: dict[str, str] | None = None,
     dictionary_excel_path: Path | str | None = None,
@@ -168,6 +199,10 @@ def _write_evaluation_outputs(
         group1_accuracy_df: DataFrame with group1 accuracy breakdown.
         group2_accuracy_df: DataFrame with group2 accuracy breakdown.
         group3_accuracy_df: DataFrame with group3 accuracy breakdown.
+        container_df: Container-level DataFrame.
+        container_group1_accuracy_df: DataFrame with container group1 accuracy breakdown.
+        container_group2_accuracy_df: DataFrame with container group2 accuracy breakdown.
+        container_group3_accuracy_df: DataFrame with container group3 accuracy breakdown.
         output_files_enabled: Mapping of output types to boolean flags indicating whether to generate them.
         group_terminology: Mapping of group keys to display names.
         dictionary_excel_path: Path to Excel file containing diagnosis group mappings.
@@ -185,12 +220,15 @@ def _write_evaluation_outputs(
         "OUTPUT_THRESHOLDS": "threshold_metrics.csv",
         "OUTPUT_THRESHOLD_PLOT": "threshold_accuracy_coverage.png",
         "OUTPUT_COVERAGE_ACCURACY_PLOT": "accuracy_coverage_plot.png",
-        "OUTPUT_ACCURACY_BREAKDOWN_GROUP_1": "accuracy_breakdown_group_1.csv",
-        "OUTPUT_ACCURACY_BREAKDOWN_GROUP_2": "accuracy_breakdown_group_2.csv",
-        "OUTPUT_ACCURACY_BREAKDOWN_GROUP_3": "accuracy_breakdown_group_3.csv",
-        "OUTPUT_CONFUSION_MATRIX_GROUP_1": "confusion_matrix_group_1.png",
-        "OUTPUT_CONFUSION_MATRIX_GROUP_2": "confusion_matrix_group_2.png",
-        "OUTPUT_CONFUSION_MATRIX_GROUP_3": "confusion_matrix_group_3.png",
+        "OUTPUT_ACCURACY_BREAKDOWN_GROUP_1": "report_accuracy_breakdown_group_1.csv",
+        "OUTPUT_ACCURACY_BREAKDOWN_GROUP_2": "report_accuracy_breakdown_group_2.csv",
+        "OUTPUT_ACCURACY_BREAKDOWN_GROUP_3": "report_accuracy_breakdown_group_3.csv",
+        "OUTPUT_CONFUSION_MATRIX_GROUP_1": "report_confusion_matrix_group_1.png",
+        "OUTPUT_CONFUSION_MATRIX_GROUP_2": "report_confusion_matrix_group_2.png",
+        "OUTPUT_CONFUSION_MATRIX_GROUP_3": "report_confusion_matrix_group_3.png",
+        "OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_1": "container_accuracy_breakdown_group_1.csv",
+        "OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_2": "container_accuracy_breakdown_group_2.csv",
+        "OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_3": "container_accuracy_breakdown_group_3.csv",
     }
     if group_terminology is None:
         logger.error("group_terminology must be provided in the configuration.")
@@ -224,8 +262,28 @@ def _write_evaluation_outputs(
         # Check if this accuracy breakdown is enabled in the config
         if output_files_enabled.get(flag_name, False):
             sanitized_name = metrics_calculators.sanitize_for_filename(group_name)
-            filename = output_dir / f"accuracy_breakdown_{sanitized_name}.csv"
+            filename = output_dir / f"report_accuracy_breakdown_{sanitized_name}.csv"
             accuracy_dfs[group_key].to_csv(filename, index=False)
+
+    # Write container group accuracy breakdown files (if data is available)
+    if len(container_df) > 0:
+        container_accuracy_dfs = {
+            "group_1": container_group1_accuracy_df,
+            "group_2": container_group2_accuracy_df,
+            "group_3": container_group3_accuracy_df,
+        }
+
+        for group_key, group_name in group_terminology.items():
+            # Map group_key to the corresponding flag name for container files
+            flag_name = f"OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_{group_key.upper()}"
+
+            # Check if this container accuracy breakdown is enabled in the config
+            if output_files_enabled.get(flag_name, False):
+                sanitized_name = metrics_calculators.sanitize_for_filename(group_name)
+                filename = (
+                    output_dir / f"container_accuracy_breakdown_{sanitized_name}.csv"
+                )
+                container_accuracy_dfs[group_key].to_csv(filename, index=False)
 
     # Write JSON outputs
     if output_files_enabled.get("OUTPUT_SUMMARY", False):
@@ -260,7 +318,7 @@ def _write_evaluation_outputs(
         # Check if this confusion matrix is enabled in the config
         if output_files_enabled.get(flag_name, False):
             sanitized_name = metrics_calculators.sanitize_for_filename(group_name)
-            filename = output_dir / f"confusion_matrix_{sanitized_name}.png"
+            filename = output_dir / f"report_confusion_matrix_{sanitized_name}.png"
 
             plotting_generators.generate_diagnosis_group_confusion_matrix(
                 report_df,
@@ -270,10 +328,32 @@ def _write_evaluation_outputs(
                 dictionary_excel_path,
             )
 
+    # Generate container confusion matrix plots for each diagnosis group (if data is available)
+    if len(container_df) > 0:
+        for group_key, group_name in group_terminology.items():
+            # Map group_key to the corresponding flag name for container files
+            flag_name = f"OUTPUT_CONTAINER_CONFUSION_MATRIX_{group_key.upper()}"
 
-###############################################################################
-# MAIN
-###############################################################################
+            # Check if this container confusion matrix is enabled in the config
+            if output_files_enabled.get(flag_name, False):
+                sanitized_name = metrics_calculators.sanitize_for_filename(group_name)
+                filename = (
+                    output_dir / f"container_confusion_matrix_{sanitized_name}.png"
+                )
+
+                # Build a DataFrame with renamed columns for plotting
+                plot_df = container_df.copy()
+                plot_df["gt_group1"] = plot_df["gt_container_group1"]
+                plot_df["gt_group2"] = plot_df["gt_container_group2"]
+                plot_df["gt_group3"] = plot_df["gt_container_group3"]
+
+                plotting_generators.generate_diagnosis_group_confusion_matrix(
+                    plot_df,
+                    group_key,
+                    filename,
+                    group_terminology,
+                    dictionary_excel_path,
+                )
 
 
 def main(run_name: str | None = None) -> None:

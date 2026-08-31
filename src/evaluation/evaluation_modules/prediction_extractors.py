@@ -94,6 +94,80 @@ def extract_top_k_primary_diagnosis_codes(record: dict[str, Any], k: int) -> lis
     return codes
 
 
+def extract_container_diagnosis(record: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract the container diagnosis from a prediction record.
+
+    Returns the container dictionary containing valid_diagnoses.
+
+    Args:
+        record: Single prediction record.
+
+    Returns:
+        Container diagnosis dictionary or None if not found.
+    """
+    # Check for new nested structure first
+    if "container" in record:
+        container = record.get("container")
+        if isinstance(container, dict):
+            return container
+    # Fallback to containers (plural)
+    elif "containers" in record:
+        containers = record.get("containers")
+        if isinstance(containers, list) and len(containers) > 0:
+            return containers[0]
+    return None
+
+
+def extract_top_1_container_diagnosis(record: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract the top-1 ranked container diagnosis from a prediction record.
+
+    Args:
+        record: Single prediction record.
+
+    Returns:
+        Top-1 container diagnosis dictionary or None if not found.
+    """
+    container = extract_container_diagnosis(record)
+    if not container:
+        return None
+
+    valid_diagnoses = container.get("valid_diagnoses", {})
+    if isinstance(valid_diagnoses, dict):
+        return valid_diagnoses.get("top_1")
+    return None
+
+
+def extract_top_k_container_diagnosis_codes(
+    record: dict[str, Any], k: int
+) -> list[int]:
+    """Extract container diagnosis codes for top-k ranked predictions.
+
+    Args:
+        record: Single prediction record.
+        k: Number of top predictions to extract.
+
+    Returns:
+        List of diagnosis codes for top-k container predictions.
+    """
+    container = extract_container_diagnosis(record)
+    if not container:
+        return []
+
+    valid_diagnoses = container.get("valid_diagnoses", {})
+    if not isinstance(valid_diagnoses, dict):
+        return []
+
+    codes: list[int] = []
+    for rank in range(1, k + 1):
+        item = valid_diagnoses.get(f"top_{rank}")
+        if item and isinstance(item, dict):
+            code = item.get("valid_diagnosis_code")
+            if code is not None:
+                codes.append(code)
+
+    return codes
+
+
 def extract_boolean_field(value: any) -> bool:
     """Convert various value types to boolean.
 
@@ -117,6 +191,10 @@ def extract_boolean_field(value: any) -> bool:
         return False
 
     if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+
+    # Handle numpy numeric types (e.g., numpy.float64, numpy.int64)
+    if isinstance(value, (int, float, np.integer, np.floating)):
         return bool(value)
 
     if not isinstance(value, str):

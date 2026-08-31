@@ -113,16 +113,44 @@ def _build_report_row(
         Dictionary representing a single report-level row.
     """
     # Extract ground-truth fields
-    gt_code = gt_row["GT Code"]
-    gt_group1 = gt_row["GT Report Diagnosis Group 1"]
-    gt_group2 = gt_row["GT Report Diagnosis Group 2"]
-    gt_group3 = gt_row["GT Report Diagnosis Group 3"]
+    gt_code = gt_row["GT Report Diagnosis Code"]
+    gt_group1 = gt_row["GT Report WHO-like Subcategories"]
+    gt_group2 = gt_row["GT Report WHO-like Categories"]
+    gt_group3 = gt_row["GT Report WHO-like Major Sections/Lineages"]
+
+    # Extract container ground-truth fields (may be NaN)
+    gt_container_code = gt_row.get("GT Container Diagnosis Code")
+    if pd.isna(gt_container_code):
+        gt_container_code = None
+    else:
+        gt_container_code = int(gt_container_code)
+
+    # Extract container ground-truth group fields (may be NaN)
+    gt_container_group1 = gt_row.get("GT Container WHO-like Subcategories")
+    gt_container_group2 = gt_row.get("GT Container WHO-like Categories")
+    gt_container_group3 = gt_row.get("GT Container WHO-like Major Sections/Lineages")
+    if pd.isna(gt_container_group1):
+        gt_container_group1 = None
+    if pd.isna(gt_container_group2):
+        gt_container_group2 = None
+    if pd.isna(gt_container_group3):
+        gt_container_group3 = None
 
     # Extract top-k diagnosis codes for accuracy checks
     topk_codes = {
         k: extractors.extract_top_k_primary_diagnosis_codes(record, k)
         for k in range(1, max(top_k_values) + 1)
     }
+
+    # Extract top-k container diagnosis codes for accuracy checks
+    topk_container_codes = (
+        {
+            k: extractors.extract_top_k_container_diagnosis_codes(record, k)
+            for k in range(1, max(top_k_values) + 1)
+        }
+        if gt_container_code is not None
+        else {}
+    )
 
     # Extract top-1 predictions
     pred_group1 = top_1.get("valid_primary_diagnosis_group_1")
@@ -201,6 +229,21 @@ def _build_report_row(
         "top5_group1_correct": gt_group1 in top5_group1 if top5_group1 else False,
         "top5_group2_correct": gt_group2 in top5_group2 if top5_group2 else False,
         "top5_group3_correct": gt_group3 in top5_group3 if top5_group3 else False,
+        # Container ground-truth group classifications
+        "gt_container_code": gt_container_code,
+        "gt_container_group1": gt_container_group1,
+        "gt_container_group2": gt_container_group2,
+        "gt_container_group3": gt_container_group3,
+        # Container diagnosis accuracy flags (None if no GT container code)
+        "container_top1_correct": gt_container_code in topk_container_codes.get(1, [])
+        if gt_container_code is not None
+        else None,
+        "container_top3_correct": gt_container_code in topk_container_codes.get(3, [])
+        if gt_container_code is not None
+        else None,
+        "container_top5_correct": gt_container_code in topk_container_codes.get(5, [])
+        if gt_container_code is not None
+        else None,
         # Boolean condition accuracy flags
         "has_differential_correct": gt_has_differential == pred_has_differential,
         "is_definitive_correct": gt_is_definitive == pred_is_definitive,
@@ -209,3 +252,45 @@ def _build_report_row(
         "has_concurrent_malignancy_correct": gt_has_concurrent_malignancy
         == pred_has_concurrent_malignancy,
     }
+
+
+def build_container_level_dataframe(
+    report_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Build a container-level DataFrame from report-level data.
+
+    Filters the report DataFrame to only rows with valid container ground-truth codes,
+    and prepares container-specific columns for group accuracy analysis.
+
+    Args:
+        report_df: Report-level DataFrame with container columns.
+
+    Returns:
+        Container-level DataFrame (subset of report_df with valid container codes).
+    """
+    # Filter to cases with valid container ground-truth codes
+    container_valid_mask = report_df["container_top1_correct"].notna()
+    container_df = report_df[container_valid_mask].copy()
+
+    # Rename container-specific columns to match metric calculator expectations
+    # This allows compute_summary_accuracy_metrics() to work with container data
+    if len(container_df) > 0:
+        container_df["top1_correct"] = container_df["container_top1_correct"]
+        container_df["top3_correct"] = container_df["container_top3_correct"]
+        container_df["top5_correct"] = container_df["container_top5_correct"]
+
+        # Rename group-level accuracy columns if they exist
+        if "container_top1_group1_correct" in container_df.columns:
+            container_df["top1_group1_correct"] = container_df[
+                "container_top1_group1_correct"
+            ]
+        if "container_top1_group2_correct" in container_df.columns:
+            container_df["top1_group2_correct"] = container_df[
+                "container_top1_group2_correct"
+            ]
+        if "container_top1_group3_correct" in container_df.columns:
+            container_df["top1_group3_correct"] = container_df[
+                "container_top1_group3_correct"
+            ]
+
+    return container_df
