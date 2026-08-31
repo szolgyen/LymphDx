@@ -67,4 +67,8 @@ class NoneDecoder(StrictJsonDecoder):
         )
         response = lm + guided_program
         payload = response["extraction"]
+
+        # Store the decorated prompt without the schema JSON
+        self._last_decorated_prompt = prompt_for_model
+
         return self._json_dumps(payload)

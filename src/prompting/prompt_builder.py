@@ -14,25 +14,8 @@ def build_extraction_prompt_from_template(
         raise ValueError("Prompt template must include '{input_text}' placeholder")
 
     prompt = template.replace("{input_text}", input_text)
-    if not include_diagnosis_constraints:
-        return prompt
 
-    diagnoses_block = "\n".join(f"- {item}" for item in sorted(allowed_diagnoses))
-
-    constraints_block = (
-        "\n\nDIAGNOSIS CONSTRAINTS:\n"
-        "Use only terms from the allowed diagnosis list below.\n"
-        "Do not output synonyms, reformulations, or ontology mappings.\n"
-        "\nALLOWED DIAGNOSIS TERMS:\n"
-        f"{diagnoses_block}\n"
-    )
-
-    marker = "\nJSON OUTPUT:"
-    if marker in prompt:
-        head, tail = prompt.rsplit(marker, 1)
-        return head + constraints_block + marker + tail
-
-    return prompt + constraints_block
+    return prompt
 
 
 def build_extraction_prompt(

@@ -13,10 +13,15 @@ class BaseModelAdapter(ABC):
             raise ValueError("schema_model is required")
         self.allowed_diagnoses = allowed_diagnoses
         self.schema_model = schema_model
+        self._last_decorated_prompt: str | None = None
 
     @abstractmethod
     def generate(self, prompt: str) -> str:
         """Return raw model output as string"""
+
+    def get_last_decorated_prompt(self) -> str | None:
+        """Return the decorated prompt (with constraints) used in last generation, if available."""
+        return self._last_decorated_prompt
 
     def extract(self, prompt: str) -> BaseModel:
         raw = self.generate(prompt)

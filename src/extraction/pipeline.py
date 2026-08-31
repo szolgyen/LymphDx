@@ -18,12 +18,12 @@ class ExtractionPipeline:
         adapter: BaseModelAdapter,
         prompt_template_path: str,
         allowed_diagnoses: set[str],
-        include_diagnosis_constraints: bool = True,
+        decoder_name: str = "none",
     ):
         self.adapter = adapter
         self.prompt_template_path = prompt_template_path
         self.allowed_diagnoses = allowed_diagnoses
-        self.include_diagnosis_constraints = include_diagnosis_constraints
+        self.decoder_name = decoder_name
         self.prompt_template = Path(prompt_template_path).read_text(encoding="utf-8")
 
     def extract_reports(
@@ -43,17 +43,19 @@ class ExtractionPipeline:
                     template=self.prompt_template,
                     input_text=report.text,
                     allowed_diagnoses=self.allowed_diagnoses,
-                    include_diagnosis_constraints=self.include_diagnosis_constraints,
+                    include_diagnosis_constraints=False,
                 )
                 logger.debug("Running extraction for report_index=%d", idx)
                 # Separate generate and parse to capture raw output on error
                 raw = self.adapter.generate(prompt)
+                # Use decorated prompt (with decoder constraints) if available, otherwise use original
+                prompt_for_logging = self.adapter.get_last_decorated_prompt() or prompt
                 try:
                     extraction = self.adapter.parse(raw)
                     extraction.case_id = report.case_id
                     outputs.append(extraction)
                     if on_success is not None:
-                        on_success(idx, extraction, prompt)
+                        on_success(idx, extraction, prompt_for_logging)
                 except SchemaValidationError as parse_error:
                     # Schema parse error: capture raw output for debugging
                     if on_error is not None:

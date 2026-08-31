@@ -106,9 +106,12 @@ class HFAdapter(BaseModelAdapter):
             temperature=self.temperature,
         )
         if decoder_output is not None:
+            # Decoder handled generation; capture decorated prompt if available
+            self._last_decorated_prompt = self._decoder.get_last_decorated_prompt()
             return decoder_output
 
         prompt_for_model = self._decoder.prepare_prompt(prompt, tokenizer)
+        self._last_decorated_prompt = prompt_for_model
         encoded = tokenizer(prompt_for_model, return_tensors="pt")
 
         # With non-sharded models, move inputs to model device.
@@ -138,7 +141,7 @@ class HFAdapter(BaseModelAdapter):
     def _format_prompt_for_json(prompt: str, tokenizer: Any) -> str:
         """Encourage schema-shaped JSON-only outputs for base and chat models."""
         json_guard = (
-            "\n\nCRITICAL OUTPUT FORMAT:\n"
+            "\n\n\nCRITICAL OUTPUT FORMAT:\n"
             "- Return EXACTLY one JSON object.\n"
             "- Do not include markdown, code fences, commentary, or trailing text.\n"
             "- Start with '{' and end with '}'.\n"

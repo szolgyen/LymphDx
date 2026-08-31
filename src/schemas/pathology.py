@@ -15,6 +15,15 @@ class ContainerInfo(BaseModel):
     diagnosis: Optional[str] = None
 
 
+class ContainerInfo_v2(BaseModel):
+    label: Optional[str] = None
+    is_lymph_node: Optional[bool] = None
+    diagnosis: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-diagnosis-constrained": True},
+    )
+
+
 class PathologyExtractionV2(BaseModel):
     schema_version: Literal["v2"] = Field(default="v2", frozen=True)
 
@@ -120,8 +129,28 @@ class PathologyExtractionV6(BaseModel):
     diagnosis_group_3: str = None
 
 
+class PathologyExtractionV7(BaseModel):
+    schema_version: Literal["v7"] = Field(default="v7", frozen=True)
+
+    case_id: Optional[int] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-decoder-exclude": True},
+    )
+
+    primary_diagnosis: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-diagnosis-constrained": True},
+    )
+    is_definitive: Optional[bool] = None
+    containers: Optional[List[ContainerInfo_v2]] = None
+    has_differential_diagnosis: Optional[bool] = None
+    has_prior_malignancy: Optional[bool] = None
+    has_concurrent_malignancy: Optional[bool] = None
+
+
 schema_v2 = PathologyExtractionV2
 schema_v3 = PathologyExtractionV3
 schema_v4 = PathologyExtractionV4
 schema_v5 = PathologyExtractionV5
 schema_v6 = PathologyExtractionV6
+schema_v7 = PathologyExtractionV7

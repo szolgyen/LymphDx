@@ -120,7 +120,7 @@ def main() -> int:
             adapter=adapter,
             prompt_template_path=prompt_template_path,
             allowed_diagnoses=allowed_diagnoses,
-            include_diagnosis_constraints=(config["decoder"] != "none"),
+            decoder_name=config["decoder"],
         )
         prepare_output_store(str(timestamped_output_dir), timestamp=timestamp)
 

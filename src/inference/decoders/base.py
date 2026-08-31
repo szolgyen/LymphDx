@@ -7,9 +7,16 @@ class BaseDecoder(ABC):
 
     name = "base"
 
+    def __init__(self):
+        self._last_decorated_prompt: str | None = None
+
     @abstractmethod
     def prepare_prompt(self, prompt: str, tokenizer: Any) -> str:
         """Prepare a prompt before backend generation."""
+
+    def get_last_decorated_prompt(self) -> str | None:
+        """Return the last prepared prompt, if any."""
+        return self._last_decorated_prompt
 
     def validate_ready(self) -> None:
         """Validate decoder runtime prerequisites before generation."""

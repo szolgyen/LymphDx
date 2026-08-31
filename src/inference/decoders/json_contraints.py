@@ -18,6 +18,7 @@ class StrictJsonDecoder(BaseDecoder):
         logger: logging.Logger | None = None,
         schema_model: type[BaseModel] | None = None,
     ):
+        super().__init__()
         self._allowed_diagnoses = allowed_diagnoses
         self._prompt_formatter = prompt_formatter
         self._logger = logger
@@ -26,17 +27,9 @@ class StrictJsonDecoder(BaseDecoder):
     def validate_ready(self) -> None:
         return None
 
-    @staticmethod
-    def _build_json_output_guard() -> str:
-        return (
-            "\n\nSTRICT JSON MODE:\n"
-            "- You MUST output exactly one valid JSON object matching the requested schema.\n"
-            "- Do not output any explanation or markdown.\n"
-        )
-
     def prepare_prompt(self, prompt: str, tokenizer: Any) -> str:
         self.validate_ready()
-        guarded_prompt = prompt + self._build_json_output_guard()
+        guarded_prompt = prompt
 
         if self._logger is not None:
             self._logger.info(

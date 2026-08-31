@@ -57,11 +57,7 @@ class OutlinesDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
     def prepare_prompt(self, prompt: str, tokenizer: Any) -> str:
         self.validate_ready()
 
-        guarded_prompt = (
-            prompt
-            + self._build_json_output_guard()
-            + self.build_diagnosis_constraints_prompt_suffix()
-        )
+        guarded_prompt = prompt + self.build_diagnosis_constraints_prompt_suffix()
         if self._logger is not None:
             self._logger.info(
                 "Using strict %s decoder constraints with %d allowed diagnoses",
@@ -90,6 +86,11 @@ class OutlinesDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
         self.validate_ready()
 
         if self.backend == "vllm":
+            # Store decorated prompt even if vllm generation is used
+            prompt_for_model = self.prepare_prompt(prompt, tokenizer)
+            schema = self.apply_diagnosis_constraints_to_schema(self._build_schema())
+            # Store prompt without schema JSON (schema constraints are enforced at token level)
+            self._last_decorated_prompt = prompt_for_model
             return self._generate_with_vllm(
                 model=model,
                 tokenizer=tokenizer,
@@ -132,6 +133,9 @@ class OutlinesDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
                 time.perf_counter() - started,
                 self._generator_backend,
             )
+
+        # Store the decorated prompt without the schema JSON
+        self._last_decorated_prompt = prompt_for_model
 
         if isinstance(payload, str):
             return payload
