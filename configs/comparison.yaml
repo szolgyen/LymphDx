@@ -4,7 +4,7 @@
 #   python scripts/compare.py
 
 # Diagnosis dictionary path
-diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260630.xlsx
+diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260824.xlsx
 
 # Results directories and summary file configuration
 results:
@@ -152,7 +152,7 @@ figures:
       - "Top-1 Accuracy\nGiven Group 3 Correct"
 
   iclassi_accuracy:
-    output: outputs/compare/iclassi_accuracy_comparison.png
+    output: outputs/compare/group_accuracy_comparison.png
     title: "Class Accuracy Hierarchy Comparison"
     ylabel: "Accuracy"
     figsize: [10, 6]
@@ -194,6 +194,7 @@ figures:
       - outputs/20260723_105919/evaluation
       - outputs/20260716_155712/evaluation
       - outputs/20260716_112257/evaluation
+    output_group0: outputs/compare/group0_accuracy_breakdown_heatmap.png
     output_group1: outputs/compare/group1_accuracy_breakdown_heatmap.png
     output_group2: outputs/compare/group2_accuracy_breakdown_heatmap.png
     output_group3: outputs/compare/group3_accuracy_breakdown_heatmap.png

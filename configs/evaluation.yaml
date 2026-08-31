@@ -5,7 +5,7 @@
 
 # Paths
 validation_file: ...
-diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260630.xlsx
+diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260824.xlsx
 
 # Ontology matching mode
 ontology_matching: true
@@ -27,14 +27,14 @@ parameters:
   TOP_K_VALUES: [1, 3, 5]
   RARE_DIAGNOSIS_THRESHOLD: 2
   THRESHOLD_STEPS: 500
-  GT_SHEET_NAME: "Results"
+  GT_SHEET_NAME: "Sheet1"
   EXCLUDE_FAILED: true
 
 # Group Terminology (customize the display names for each group)
 group_terminology:
-  group_1: "Group1"
-  group_2: "Group2"
-  group_3: "Group3"
+  group_1: "WHO-like Subcategories"
+  group_2: "WHO-like Categories"
+  group_3: "WHO-like Major Sections/Lineages"
 
 # Output files (enable/disable outputs by setting true/false)
 output_files:

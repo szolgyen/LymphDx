@@ -17,15 +17,17 @@ from .base import BaseFigure
 
 
 def _load_group_mapping(
-    dictionary_path: str | None, source_col: str, target_col: str = "Diagnostic group 3"
+    dictionary_path: str | None,
+    source_col: str,
+    target_col: str = "WHO-like Major Sections/Lineages",
 ) -> dict:
     """
     Load a mapping from source to target diagnostic group from the Excel dictionary.
 
     Args:
         dictionary_path: Path to the Excel dictionary file.
-        source_col: Source column name (e.g., "Diagnosis", "Diagnostic group 1").
-        target_col: Target column name (default: "Diagnostic group 3").
+        source_col: Source column name (e.g., "Diagnosis", "WHO-like Subcategories").
+        target_col: Target column name (default: "WHO-like Major Sections/Lineages").
 
     Returns:
         Dictionary mapping source to target categories.
@@ -57,12 +59,12 @@ def load_group0_to_group3_mapping(dictionary_path: str) -> dict:
 
 def load_group1_to_group3_mapping(dictionary_path: str) -> dict:
     """Load group1 to group3 mapping."""
-    return _load_group_mapping(dictionary_path, "Diagnostic group 1")
+    return _load_group_mapping(dictionary_path, "WHO-like Subcategories")
 
 
 def load_group2_to_group3_mapping(dictionary_path: str) -> dict:
     """Load group2 to group3 mapping."""
-    return _load_group_mapping(dictionary_path, "Diagnostic group 2")
+    return _load_group_mapping(dictionary_path, "WHO-like Categories")
 
 
 def _get_group_mapping_for_number(group_num: int, dictionary_path: str | None) -> dict:

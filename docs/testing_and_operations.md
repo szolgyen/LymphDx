@@ -30,7 +30,7 @@ backend: hf
 model: google/medgemma-4b-it
 decoder: guidance
 input_file: inputs/hempath_reports.xlsx
-diagnosis_terms_file: inputs/LN_Dx_dictionary_codes_20260630.xlsx
+diagnosis_terms_file: inputs/LN_Dx_dictionary_codes_20260824.xlsx
 log_level: INFO
 ```
 

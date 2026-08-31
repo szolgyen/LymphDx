@@ -28,7 +28,7 @@ CONFIG_DEFAULTS: dict[str, Any] = {
     "decoder": "none",
     "schema": "v5",
     "input_file": None,
-    "diagnosis_dictionary": "inputs/LN_Dx_dictionary_codes_20260630.xlsx",
+    "diagnosis_dictionary": "inputs/LN_Dx_dictionary_codes_20260824.xlsx",
     "output_dir": "outputs/predictions",
     "log_level": "INFO",
 }

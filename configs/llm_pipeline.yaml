@@ -19,7 +19,7 @@ schema: v5
 input_file: ...
 
 # Text file with one allowed diagnosis per line
-diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260630.xlsx
+diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260824.xlsx
 
 # Directory for extracted JSON outputs
 output_dir: outputs/

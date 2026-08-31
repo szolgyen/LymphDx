@@ -17,7 +17,7 @@ Main configuration keys:
 - `schema`: schema version (e.g., `v5`)
 - `input_file`: reports file (.xlsx)
 - `diagnosis_terms_file`: allowed diagnosis terms file
-   - default: `inputs/LN_Dx_dictionary_codes_20260630.xlsx`
+   - default: `inputs/LN_Dx_dictionary_codes_20260824.xlsx`
 - `output_dir`: JSON output directory
 - `log_level`: `DEBUG` | `INFO` | `WARNING` | `ERROR` | `CRITICAL`
 
