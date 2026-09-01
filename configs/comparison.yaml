@@ -21,22 +21,22 @@ error_analysis_file: error_analysis.json
 # Metrics to extract from the evaluation summary
 metrics:
   - primary_top1_accuracy
-  - group1_top1_accuracy
-  - group2_top1_accuracy
-  - group3_top1_accuracy
-  - group1_top3_accuracy
-  - group2_top3_accuracy
-  - group3_top3_accuracy
-  - group1_top5_accuracy
-  - group2_top5_accuracy
-  - group3_top5_accuracy
+  - who-like_subcategories_top1_accuracy
+  - who-like_categories_top1_accuracy
+  - who-like_major_sections_lineages_top1_accuracy
+  - who-like_subcategories_top3_accuracy
+  - who-like_categories_top3_accuracy
+  - who-like_major_sections_lineages_top3_accuracy
+  - who-like_subcategories_top5_accuracy
+  - who-like_categories_top5_accuracy
+  - who-like_major_sections_lineages_top5_accuracy
   - differential_mentioned_mcc
   - is_definitive_mcc
   - prior_malignancy_mcc
   - concurrent_malignancy_mcc
-  - group1_top1_accuracy_given_correct
-  - group2_top1_accuracy_given_correct
-  - group3_top1_accuracy_given_correct
+  - who-like_subcategories_top1_accuracy_given_correct
+  - who-like_categories_top1_accuracy_given_correct
+  - who-like_major_sections_lineages_top1_accuracy_given_correct
 
 # Error analysis metrics to extract from error_analysis.json
 error_analysis_metrics:
@@ -69,22 +69,22 @@ name_mappings:
 
   # Metrics
   "primary_top1_accuracy": "Primary diagnosis\nAccuracy"
-  "group1_top1_accuracy": "Group 1 (our)\nClass-accuracy"
-  "group2_top1_accuracy": "Group 2 (iCLASS-i)\nClass-accuracy"
-  "group3_top1_accuracy": "Disease Behavior​\nClass-accuracy"
-  "group1_top3_accuracy": "Group 1 (our)\nTop-3 Accuracy"
-  "group2_top3_accuracy": "Group 2 (iCLASS-i)\nTop-3 Accuracy"
-  "group3_top3_accuracy": "Disease Behavior​\nTop-3 Accuracy"
-  "group1_top5_accuracy": "Group 1 (our)\nTop-5 Accuracy"
-  "group2_top5_accuracy": "Group 2 (iCLASS-i)\nTop-5 Accuracy"
-  "group3_top5_accuracy": "Disease Behavior​\nTop-5 Accuracy"
+  "who-like_subcategories_top1_accuracy": "WHO-like Subcategories\nTop-1 Accuracy"
+  "who-like_categories_top1_accuracy": "WHO-like Categories\nTop-1 Accuracy"
+  "who-like_major_sections_lineages_top1_accuracy": "WHO-like Major Sections Lineages\nTop-1 Accuracy"
+  "who-like_subcategories_top3_accuracy": "WHO-like Subcategories\nTop-3 Accuracy"
+  "who-like_categories_top3_accuracy": "WHO-like Categories\nTop-3 Accuracy"
+  "who-like_major_sections_lineages_top3_accuracy": "WHO-like Major Sections Lineages\nTop-3 Accuracy"
+  "who-like_subcategories_top5_accuracy": "WHO-like Subcategories\nTop-5 Accuracy"
+  "who-like_categories_top5_accuracy": "WHO-like Categories\nTop-5 Accuracy"
+  "who-like_major_sections_lineages_top5_accuracy": "WHO-like Major Sections Lineages\nTop-5 Accuracy"
   "differential_mentioned_mcc": "Differential\nMentioned MCC"
   "is_definitive_mcc": "Is Definitive\nMCC"
   "prior_malignancy_mcc": "Prior\nMalignancy MCC"
   "concurrent_malignancy_mcc": "Concurrent\nMalignancy MCC"
-  "group1_top1_accuracy_given_correct": "Top-1 Accuracy\nGiven Group 1 Correct"
-  "group2_top1_accuracy_given_correct": "Top-1 Accuracy\nGiven Group 2 Correct"
-  "group3_top1_accuracy_given_correct": "Top-1 Accuracy\nGiven Group 3 Correct"
+  "who-like_subcategories_top1_accuracy_given_correct": "Top-1 Accuracy\nWHO-like Subcategories Correct"
+  "who-like_categories_top1_accuracy_given_correct": "Top-1 Accuracy\nWHO-like Categories Correct"
+  "who-like_major_sections_lineages_top1_accuracy_given_correct": "Top-1 Accuracy\nWHO-like Major Sections Lineages Correct"
   "fraction_none": "None"
   "fraction_one_D": "D Only"
   "fraction_one_N": "N Only"
@@ -112,9 +112,9 @@ figures:
     dpi: 300
     columns:
       - "Primary diagnosis\nAccuracy"
-      - "Group 1 (our)\nClass-accuracy"
-      - "Group 2 (iCLASS-i)\nClass-accuracy"
-      - "Disease Behavior​\nClass-accuracy"
+      - "WHO-like Subcategories\nTop-1 Accuracy"
+      - "WHO-like Categories\nTop-1 Accuracy"
+      - "WHO-like Major Sections Lineages\nTop-1 Accuracy"
 
   grouped_bar:
     output: outputs/compare/performance_comparison_bar.png
@@ -124,9 +124,9 @@ figures:
     dpi: 300
     columns:
       - "Primary diagnosis\nAccuracy"
-      - "Group 1 (our)\nClass-accuracy"
-      - "Group 2 (iCLASS-i)\nClass-accuracy"
-      - "Disease Behavior​\nClass-accuracy"
+      - "WHO-like Subcategories\nTop-1 Accuracy"
+      - "WHO-like Categories\nTop-1 Accuracy"
+      - "WHO-like Major Sections Lineages\nTop-1 Accuracy"
 
   mcc_metrics:
     output: outputs/compare/mcc_metrics_comparison.png
@@ -147,9 +147,9 @@ figures:
     figsize: [10, 6]
     dpi: 300
     columns:
-      - "Top-1 Accuracy\nGiven Group 1 Correct"
-      - "Top-1 Accuracy\nGiven Group 2 Correct"
-      - "Top-1 Accuracy\nGiven Group 3 Correct"
+      - "Top-1 Accuracy\nWHO-like Subcategories Correct"
+      - "Top-1 Accuracy\nWHO-like Categories Correct"
+      - "Top-1 Accuracy\nWHO-like Major Sections Lineages Correct"
 
   iclassi_accuracy:
     output: outputs/compare/group_accuracy_comparison.png
@@ -198,9 +198,9 @@ figures:
     output_group1: outputs/compare/group1_accuracy_breakdown_heatmap.png
     output_group2: outputs/compare/group2_accuracy_breakdown_heatmap.png
     output_group3: outputs/compare/group3_accuracy_breakdown_heatmap.png
-    group1_title: "Group 1 (our)"
-    group2_title: "Group 2 (iCLASS-i)"
-    group3_title: "Disease Behavior"
+    group1_title: "WHO-like Subcategories"
+    group2_title: "WHO-like Categories"
+    group3_title: "WHO-like Major Sections Lineages"
     figsize: [12, 10]
     dpi: 300
     cmap: RdYlGn

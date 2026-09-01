@@ -78,6 +78,45 @@ def _get_group_mapping_for_number(group_num: int, dictionary_path: str | None) -
     return {}
 
 
+def _get_group3_categories_and_colors(
+    g_to_g3_mapping: dict[str, str],
+) -> tuple[list[str], dict[str, str]]:
+    """Extract unique group3 categories from mapping and generate colors dynamically.
+
+    Args:
+        g_to_g3_mapping: Mapping from group category to group3 category.
+
+    Returns:
+        Tuple of (ordered_group3_categories, colors_map).
+    """
+    # Extract unique group3 categories in order of first appearance
+    unique_g3 = []
+    seen = set()
+    for g3 in g_to_g3_mapping.values():
+        if g3 not in seen:
+            unique_g3.append(g3)
+            seen.add(g3)
+
+    # Generate colors dynamically for all categories
+    color_palette = [
+        "#d62728",  # Red (Malignant)
+        "#2ca02c",  # Green (Reactive)
+        "#ff7f0e",  # Orange (Infectious)
+        "#9467bd",  # Purple (Miscellaneous)
+        "#1f77b4",  # Blue
+        "#17becf",  # Cyan
+        "#bcbd22",  # Yellow-green
+        "#e377c2",  # Pink
+        "#7f7f7f",  # Gray
+    ]
+
+    colors_map = {}
+    for i, g3 in enumerate(unique_g3):
+        colors_map[g3] = color_palette[i % len(color_palette)]
+
+    return unique_g3, colors_map
+
+
 def _load_group_data_from_report(
     result_dir: Path, model_name: str, group_num: int, dictionary_path: str | None
 ) -> tuple[pd.Series | None, pd.Series | None]:
@@ -194,12 +233,14 @@ def _load_group3_data(
     result_dir: Path, model_name: str
 ) -> tuple[pd.Series | None, pd.Series | None]:
     """
-    Load Group3 (top-level) accuracy data from accuracy_breakdown_group3.csv.
+    Load Group3 (top-level) accuracy data from report_accuracy_breakdown_who-like_major_sections_lineages.csv.
 
     Returns:
         Tuple of (accuracy_series, n_series) or (None, None) if file not found or invalid.
     """
-    csv_path = result_dir / "accuracy_breakdown_group3.csv"
+    csv_path = (
+        result_dir / "report_accuracy_breakdown_who-like_major_sections_lineages.csv"
+    )
 
     if not csv_path.exists():
         print(f"Warning: {csv_path} not found, skipping {model_name}")
@@ -253,12 +294,8 @@ def _sort_dataframe_by_group3(
     if not group3_mapping:
         return heatmap_df
 
-    group3_order = [
-        "Malignant/neoplastic",
-        "Reactive/inflammatory",
-        "Infectious Lymphadenitis",
-        "Miscellaneous",
-    ]
+    # Dynamically extract group3 categories from mapping
+    group3_order, _ = _get_group3_categories_and_colors(group3_mapping)
 
     sort_keys = []
     for item_name in heatmap_df.index:
@@ -327,31 +364,8 @@ def _style_labels_and_legend(
         group3_mapping.get(name, "Miscellaneous") for name in heatmap_df.index
     }
 
-    # Define order and colors
-    group3_order = [
-        "Malignant/neoplastic",
-        "Reactive/inflammatory",
-        "Infectious Lymphadenitis",
-        "Miscellaneous",
-    ]
-
-    group3_order_extended = list(group3_order)
-    for g3 in sorted(group3_categories_in_data):
-        if g3 not in group3_order_extended:
-            group3_order_extended.append(g3)
-
-    colors_map = {
-        "Malignant/neoplastic": "#d62728",  # red
-        "Reactive/inflammatory": "#2ca02c",  # green
-        "Infectious Lymphadenitis": "#ff7f0e",  # orange
-        "Miscellaneous": "#9467bd",  # purple
-    }
-
-    # Assign colors to unknown categories
-    unknown_categories = [g3 for g3 in group3_order_extended if g3 not in colors_map]
-    color_palette = ["#1f77b4", "#17becf", "#bcbd22", "#e377c2", "#7f7f7f"]
-    for i, g3 in enumerate(unknown_categories):
-        colors_map[g3] = color_palette[i % len(color_palette)]
+    # Dynamically extract group3 categories and colors from mapping
+    group3_order, colors_map = _get_group3_categories_and_colors(group3_mapping)
 
     # Color y-axis labels
     yticklabels = ax.get_yticklabels()
@@ -366,7 +380,7 @@ def _style_labels_and_legend(
     # Create legend
     legend_elements = [
         Patch(facecolor=colors_map[g3], label=g3)
-        for g3 in group3_order_extended
+        for g3 in group3_order
         if g3 in group3_categories_in_data
     ]
 

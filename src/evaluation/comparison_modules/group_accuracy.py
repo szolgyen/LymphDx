@@ -32,16 +32,24 @@ class GroupAccuracyFigure(BaseFigure):
         if name_mappings is None:
             name_mappings = {}
 
+        category_names = {
+            1: "subcategories",
+            2: "categories",
+            3: "major_sections_lineages",
+        }
+
         metrics_by_group_topk = {}
         for group in [1, 2, 3]:
             for topk, topk_label in [(1, "Top-1"), (3, "Top-3"), (5, "Top-5")]:
-                original_metric = f"group{group}_top{topk}_accuracy"
+                original_metric = f"who-like_{category_names[group]}_top{topk}_accuracy"
                 # Get the display name from name_mappings if available
                 if original_metric in name_mappings:
                     display_name = name_mappings[original_metric]
                 else:
                     # Fallback: construct from group and topk
-                    display_name = f"Group {group}\n{topk_label} Accuracy"
+                    display_name = (
+                        f"WHO-like {category_names[group]}\n{topk_label} Accuracy"
+                    )
                 metrics_by_group_topk[(group, topk_label)] = display_name
 
         # Filter dataframe by specified models if provided
@@ -89,7 +97,7 @@ class GroupAccuracyFigure(BaseFigure):
         # Extract group names from name_mappings
         group_names = []
         for group in [1, 2, 3]:
-            original_metric = f"group{group}_top1_accuracy"
+            original_metric = f"who-like_{category_names[group]}_top1_accuracy"
             if original_metric in name_mappings:
                 # Extract just the group name part (before \n)
                 display_name = name_mappings[original_metric]
