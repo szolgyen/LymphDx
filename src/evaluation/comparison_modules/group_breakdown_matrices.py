@@ -389,7 +389,7 @@ def _style_labels_and_legend(
         loc="lower left",
         bbox_to_anchor=(-0.35, -0.2),
         frameon=True,
-        title="Disease Behavior",
+        title="WHO-like Major Sections/Lineages",
         fontsize=10,
     )
 
