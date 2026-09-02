@@ -49,10 +49,10 @@ class DiagnosisConstraintsMixin:
                     {"type": "string", "enum": allowed},
                     {"type": "null"},
                 ]
-            elif "type" in node or "items" in node:
-                # For array items, apply enum constraint directly
-                if "items" in node:
-                    node["items"] = {"type": "string", "enum": allowed}
+            elif node.get("type") == "string":
+                node["enum"] = allowed
+            elif "items" in node:
+                node["items"] = {"type": "string", "enum": allowed}
 
         # Recursively process all nested structures
         for key, value in node.items():
