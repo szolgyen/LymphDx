@@ -16,9 +16,10 @@ def main() -> int:
         logger.info("Starting comparison")
         compare_main()
         logger.info("Comparison completed successfully")
+        return 0
     except Exception as exc:
         logger.exception("Evaluation failed: %s", exc)
-
+        return 1
 
 if __name__ == "__main__":
     raise SystemExit(main())
