@@ -28,7 +28,7 @@ CONFIG_DEFAULTS: dict[str, Any] = {
     "decoder": "none",
     "schema": "v5",
     "input_file": None,
-    "diagnosis_dictionary": "inputs/LN_Dx_dictionary_codes_20260630.xlsx",
+    "diagnosis_dictionary": "inputs/LN_Dx_dictionary_codes_20260824.xlsx",
     "output_dir": "outputs/predictions",
     "log_level": "INFO",
 }
@@ -120,7 +120,7 @@ def main() -> int:
             adapter=adapter,
             prompt_template_path=prompt_template_path,
             allowed_diagnoses=allowed_diagnoses,
-            include_diagnosis_constraints=(config["decoder"] != "none"),
+            decoder_name=config["decoder"],
         )
         prepare_output_store(str(timestamped_output_dir), timestamp=timestamp)
 

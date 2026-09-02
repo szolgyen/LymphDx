@@ -151,6 +151,23 @@ def compute_summary_accuracy_metrics(
         ),
     }
 
+    # Add container accuracy metrics (filter to rows with valid container codes)
+    container_valid_mask = report_df["container_top1_correct"].notna()
+    if container_valid_mask.any():
+        result["container_top1_accuracy"] = calculate_accuracy(
+            report_df.loc[container_valid_mask, "container_top1_correct"]
+        )
+        result["container_top3_accuracy"] = calculate_accuracy(
+            report_df.loc[container_valid_mask, "container_top3_correct"]
+        )
+        result["container_top5_accuracy"] = calculate_accuracy(
+            report_df.loc[container_valid_mask, "container_top5_correct"]
+        )
+    else:
+        result["container_top1_accuracy"] = None
+        result["container_top3_accuracy"] = None
+        result["container_top5_accuracy"] = None
+
     # Add dynamic group-based metrics
     for group_key, group_name in group_terminology.items():
         group_normalized = normalize_group_key(group_key)

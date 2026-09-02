@@ -181,9 +181,10 @@ class OntologyMatcher:
             # Add diagnostic groups if available
             if code in self.code_to_groups:
                 groups = self.code_to_groups[code]
-                result["group_1"] = groups.get("Diagnostic group 1")
-                result["group_2"] = groups.get("Diagnostic group 2")
-                result["group_3"] = groups.get("Diagnostic group 3")
+                result["group_1"] = groups.get("WHO-like Subcategories")
+                result["group_2"] = groups.get("WHO-like Categories")
+                result["group_3"] = groups.get("WHO-like Major Sections/Lineages")
+                result["group_4"] = groups.get("Diagnostic group 4")
 
             results[f"top_{rank}"] = result
 
@@ -194,7 +195,7 @@ def load_ontology(excel_file):
     """
     Input Excel:
 
-    Code | Diagnosis | Diagnostic group 1 | Diagnostic group 2 | Diagnostic group 3
+    Code | Diagnosis | WHO-like Subcategories | WHO-like Categories | WHO-like Major Sections/Lineages | Diagnostic group 4
 
     Multiple rows with same code are treated as synonyms.
     """
@@ -224,9 +225,12 @@ def load_ontology(excel_file):
         # Store group information for each code (take first occurrence)
         if code not in code_to_groups:
             code_to_groups[code] = {
-                "Diagnostic group 1": row.get("Diagnostic group 1"),
-                "Diagnostic group 2": row.get("Diagnostic group 2"),
-                "Diagnostic group 3": row.get("Diagnostic group 3"),
+                "WHO-like Subcategories": row.get("WHO-like Subcategories"),
+                "WHO-like Categories": row.get("WHO-like Categories"),
+                "WHO-like Major Sections/Lineages": row.get(
+                    "WHO-like Major Sections/Lineages"
+                ),
+                "Diagnostic group 4": row.get("Diagnostic group 4"),
             }
 
     ontology = []
@@ -322,9 +326,10 @@ def process_record(
                 "code": primary_code,
                 "name": primary,
                 "score": None,
-                "group_1": groups.get("Diagnostic group 1"),
-                "group_2": groups.get("Diagnostic group 2"),
-                "group_3": groups.get("Diagnostic group 3"),
+                "group_1": groups.get("WHO-like Subcategories"),
+                "group_2": groups.get("WHO-like Categories"),
+                "group_3": groups.get("WHO-like Major Sections/Lineages"),
+                "group_4": groups.get("Diagnostic group 4"),
             }
         }
 
@@ -346,9 +351,10 @@ def process_record(
                     "code": diagnosis_code,
                     "name": diagnosis,
                     "score": None,
-                    "group_1": groups.get("Diagnostic group 1"),
-                    "group_2": groups.get("Diagnostic group 2"),
-                    "group_3": groups.get("Diagnostic group 3"),
+                    "group_1": groups.get("WHO-like Subcategories"),
+                    "group_2": groups.get("WHO-like Categories"),
+                    "group_3": groups.get("WHO-like Major Sections/Lineages"),
+                    "group_4": groups.get("Diagnostic group 4"),
                 }
             }
 

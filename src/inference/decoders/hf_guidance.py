@@ -46,11 +46,7 @@ class HFGuidanceDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
     def prepare_prompt(self, prompt: str, tokenizer: Any) -> str:
         self.validate_ready()
 
-        guarded_prompt = (
-            prompt
-            + self._build_json_output_guard()
-            + self.build_diagnosis_constraints_prompt_suffix()
-        )
+        guarded_prompt = prompt + self.build_diagnosis_constraints_prompt_suffix()
         if self._logger is not None:
             self._logger.info(
                 "Using strict %s decoder constraints with %d allowed diagnoses",
@@ -114,5 +110,8 @@ class HFGuidanceDecoder(DiagnosisConstraintsMixin, StrictJsonDecoder):
                 "Guidance decoding finished in %.2fs",
                 time.perf_counter() - started,
             )
+
+        # Store the decorated prompt without the schema JSON
+        self._last_decorated_prompt = prompt_for_model
 
         return self._json_dumps(payload)

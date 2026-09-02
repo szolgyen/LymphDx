@@ -129,6 +129,46 @@ def generate_coverage_accuracy_tradeoff_plot(
     plt.close(fig)
 
 
+def _load_group_to_group3_mapping(
+    dictionary_excel_path: Path | str,
+    source_column: str,
+    target_column: str = "WHO-like Major Sections/Lineages",
+) -> dict[str, str]:
+    """Load mapping from a diagnosis group to group 3 from Excel reference file.
+
+    Args:
+        dictionary_excel_path: Path to the Excel file containing diagnosis group mappings.
+        source_column: Column name to map from (e.g., "WHO-like Categories").
+        target_column: Column name to map to (default: "WHO-like Major Sections/Lineages").
+
+    Returns:
+        Dictionary mapping source group categories to group 3 categories.
+    """
+    mapping = {}
+    excel_path = Path(dictionary_excel_path)
+
+    if excel_path.exists():
+        try:
+            df_mapping = pd.read_excel(excel_path)
+            if (
+                source_column in df_mapping.columns
+                and target_column in df_mapping.columns
+            ):
+                for idx, row in df_mapping.iterrows():
+                    source = row[source_column]
+                    target = row[target_column]
+                    if pd.notna(source) and pd.notna(target):
+                        mapping[str(source).strip()] = str(target).strip()
+        except Exception as e:
+            logger.warning(
+                f"Could not load mapping from {excel_path} ({source_column} -> {target_column}): {e}"
+            )
+    else:
+        logger.warning(f"Excel dictionary file not found at {excel_path}")
+
+    return mapping
+
+
 def _load_group2_to_group3_mapping(dictionary_excel_path: Path | str) -> dict[str, str]:
     """Load mapping between diagnosis group 2 and group 3 from Excel reference file.
 
@@ -138,27 +178,50 @@ def _load_group2_to_group3_mapping(dictionary_excel_path: Path | str) -> dict[st
     Returns:
         Dictionary mapping group 2 categories to group 3 categories.
     """
-    mapping = {}
-    excel_path = Path(dictionary_excel_path)
+    return _load_group_to_group3_mapping(
+        dictionary_excel_path,
+        source_column="WHO-like Categories",
+        target_column="WHO-like Major Sections/Lineages",
+    )
 
-    if excel_path.exists():
-        try:
-            df_mapping = pd.read_excel(excel_path)
-            if (
-                "Diagnostic group 2" in df_mapping.columns
-                and "Diagnostic group 3" in df_mapping.columns
-            ):
-                for idx, row in df_mapping.iterrows():
-                    g2 = row["Diagnostic group 2"]
-                    g3 = row["Diagnostic group 3"]
-                    if pd.notna(g2) and pd.notna(g3):
-                        mapping[str(g2).strip()] = str(g3).strip()
-        except Exception as e:
-            logger.warning(f"Could not load mapping from {excel_path}: {e}")
-    else:
-        logger.warning(f"Excel dictionary file not found at {excel_path}")
 
-    return mapping
+def _get_group3_categories_and_colors(
+    g2_to_g3_mapping: dict[str, str],
+) -> tuple[list[str], dict[str, str]]:
+    """Extract unique group3 categories from mapping and generate colors.
+
+    Args:
+        g2_to_g3_mapping: Mapping from group2 to group3 categories.
+
+    Returns:
+        Tuple of (ordered_group3_categories, colors_map).
+    """
+    # Extract unique group3 categories in order of first appearance
+    unique_g3 = []
+    seen = set()
+    for g3 in g2_to_g3_mapping.values():
+        if g3 not in seen:
+            unique_g3.append(g3)
+            seen.add(g3)
+
+    # Generate colors dynamically for all categories
+    color_palette = [
+        "#d62728",  # Red (Malignant)
+        "#2ca02c",  # Green (Reactive)
+        "#ff7f0e",  # Orange (Infectious)
+        "#9467bd",  # Purple (Miscellaneous)
+        "#1f77b4",  # Blue
+        "#17becf",  # Cyan
+        "#bcbd22",  # Yellow-green
+        "#e377c2",  # Pink
+        "#7f7f7f",  # Gray
+    ]
+
+    colors_map = {}
+    for i, g3 in enumerate(unique_g3):
+        colors_map[g3] = color_palette[i % len(color_palette)]
+
+    return unique_g3, colors_map
 
 
 def generate_diagnosis_group_confusion_matrix(
@@ -208,29 +271,36 @@ def generate_diagnosis_group_confusion_matrix(
     # Collect all unique categories from both GT and predictions
     all_labels = sorted(set(y_true) | set(y_pred))
 
-    # For group_2, load mapping and customize sorting/appearance
-    g2_to_g3_mapping = {}
-    if group_key == "group_2" and dictionary_excel_path:
-        g2_to_g3_mapping = _load_group2_to_group3_mapping(dictionary_excel_path)
-        if g2_to_g3_mapping:
-            # Define disease behavior category order
-            group3_order = [
-                "Malignant/neoplastic",
-                "Reactive/inflammatory",
-                "Infectious Lymphadenitis",
-                "Miscellaneous",
-            ]
+    # Load group-to-group3 mapping and customize sorting/appearance
+    group_to_g3_mapping = {}
+    group3_order = []
+    colors_map = {}
 
-            # Sort labels by their group_3 category
-            def get_sort_key(label: str) -> tuple:
-                group3 = g2_to_g3_mapping.get(label, "Miscellaneous")
-                try:
-                    g3_priority = group3_order.index(group3)
-                except ValueError:
-                    g3_priority = len(group3_order)
-                return (g3_priority, label)
+    if dictionary_excel_path:
+        if group_key == "group_1":
+            group_to_g3_mapping = _load_group_to_group3_mapping(
+                dictionary_excel_path,
+                source_column="WHO-like Subcategories",
+                target_column="WHO-like Major Sections/Lineages",
+            )
+        elif group_key == "group_2":
+            group_to_g3_mapping = _load_group2_to_group3_mapping(dictionary_excel_path)
 
-            all_labels = sorted(all_labels, key=get_sort_key)
+    if group_to_g3_mapping:
+        group3_order, colors_map = _get_group3_categories_and_colors(
+            group_to_g3_mapping
+        )
+
+        # Sort labels by their group_3 category
+        def get_sort_key(label: str) -> tuple:
+            group3 = group_to_g3_mapping.get(label, "Miscellaneous")
+            try:
+                g3_priority = group3_order.index(group3)
+            except ValueError:
+                g3_priority = len(group3_order)
+            return (g3_priority, label)
+
+        all_labels = sorted(all_labels, key=get_sort_key)
 
     # Compute normalized confusion matrix
     cm = confusion_matrix(y_true, y_pred, labels=all_labels, normalize="true")
@@ -257,11 +327,11 @@ def generate_diagnosis_group_confusion_matrix(
     ax.yaxis.set_label_position("right")
     ax.tick_params(axis="y", labelleft=False, labelright=True)
 
-    # Add boxes around diagonal blocks for group_2
-    if g2_to_g3_mapping:
+    # Add boxes around diagonal blocks for group_1 and group_2
+    if group_to_g3_mapping:
         group3_regions = {}
         for idx, label in enumerate(all_labels):
-            group3 = g2_to_g3_mapping.get(label, "Miscellaneous")
+            group3 = group_to_g3_mapping.get(label, "Miscellaneous")
             if group3 not in group3_regions:
                 group3_regions[group3] = [idx, idx]
             else:
@@ -281,9 +351,11 @@ def generate_diagnosis_group_confusion_matrix(
             )
             ax.add_patch(rect)
 
-    # Add special formatting for group_2
-    if group_key == "group_2" and g2_to_g3_mapping:
-        _apply_group2_formatting(ax, all_labels, g2_to_g3_mapping)
+    # Add special formatting for group_1 and group_2
+    if group_key in ("group_1", "group_2") and group_to_g3_mapping:
+        _apply_group_formatting(
+            ax, all_labels, group_to_g3_mapping, group3_order, colors_map
+        )
 
     # Wrap long labels for readability
     ax.set_yticklabels(
@@ -306,42 +378,29 @@ def generate_diagnosis_group_confusion_matrix(
     plt.close()
 
 
-def _apply_group2_formatting(
+def _apply_group_formatting(
     ax: plt.Axes,
     all_labels: list[str],
-    g2_to_g3_mapping: dict[str, str],
+    group_to_g3_mapping: dict[str, str],
+    group3_order: list[str],
+    colors_map: dict[str, str],
 ) -> None:
-    """Apply group_2-specific formatting: colors, separators, and legend.
+    """Apply group-specific formatting: colors, separators, and legend.
 
     Args:
         ax: Matplotlib axes to format.
-        all_labels: Sorted list of all group_2 labels.
-        g2_to_g3_mapping: Mapping from group_2 labels to group_3 categories.
+        all_labels: Sorted list of all group labels.
+        group_to_g3_mapping: Mapping from group labels to group_3 categories.
+        group3_order: Ordered list of group_3 categories.
+        colors_map: Mapping from group_3 categories to hex colors.
     """
-    group3_order = [
-        "Malignant/neoplastic",
-        "Reactive/inflammatory",
-        "Infectious Lymphadenitis",
-        "Miscellaneous",
-    ]
-    colors_map = {
-        "Malignant/neoplastic": "#d62728",
-        "Reactive/inflammatory": "#2ca02c",
-        "Infectious Lymphadenitis": "#ff7f0e",
-        "Miscellaneous": "#9467bd",
-    }
-
-    # Assign colors to any unknown categories
-    unknown_categories = set(g2_to_g3_mapping.values()) - set(colors_map.keys())
-    color_palette = ["#1f77b4", "#17becf", "#bcbd22", "#e377c2", "#7f7f7f"]
-    for i, g3 in enumerate(sorted(unknown_categories)):
-        colors_map[g3] = color_palette[i % len(color_palette)]
-
     # Color y-axis (true) labels
     for label in ax.get_yticklabels():
         label_text = label.get_text()
         if label_text:
-            group3 = g2_to_g3_mapping.get(label_text, "Miscellaneous")
+            group3 = group_to_g3_mapping.get(
+                label_text, group3_order[-1] if group3_order else "Miscellaneous"
+            )
             color = colors_map.get(group3, "black")
             label.set_color(color)
             label.set_fontweight("bold")
@@ -350,7 +409,9 @@ def _apply_group2_formatting(
     for label in ax.get_xticklabels():
         label_text = label.get_text()
         if label_text:
-            group3 = g2_to_g3_mapping.get(label_text, "Miscellaneous")
+            group3 = group_to_g3_mapping.get(
+                label_text, group3_order[-1] if group3_order else "Miscellaneous"
+            )
             color = colors_map.get(group3, "black")
             label.set_color(color)
             label.set_fontweight("bold")
@@ -358,7 +419,9 @@ def _apply_group2_formatting(
     # Add vertical separators between group_3 categories
     current_g3 = None
     for idx, label in enumerate(all_labels):
-        group3 = g2_to_g3_mapping.get(label, "Miscellaneous")
+        group3 = group_to_g3_mapping.get(
+            label, group3_order[-1] if group3_order else "Miscellaneous"
+        )
         if current_g3 is not None and group3 != current_g3:
             ax.axvline(x=idx, color="black", linewidth=0.5, linestyle="--")
         current_g3 = group3
@@ -366,7 +429,9 @@ def _apply_group2_formatting(
     # Add horizontal separators between group_3 categories
     current_g3 = None
     for idx, label in enumerate(all_labels):
-        group3 = g2_to_g3_mapping.get(label, "Miscellaneous")
+        group3 = group_to_g3_mapping.get(
+            label, group3_order[-1] if group3_order else "Miscellaneous"
+        )
         if current_g3 is not None and group3 != current_g3:
             ax.axhline(y=idx, color="black", linewidth=0.5, linestyle="--")
         current_g3 = group3
@@ -375,13 +440,19 @@ def _apply_group2_formatting(
     legend_elements = [
         Patch(facecolor=colors_map[g3], label=g3)
         for g3 in group3_order
-        if g3 in [g2_to_g3_mapping.get(name, "Miscellaneous") for name in all_labels]
+        if g3
+        in [
+            group_to_g3_mapping.get(
+                name, group3_order[-1] if group3_order else "Miscellaneous"
+            )
+            for name in all_labels
+        ]
     ]
     ax.legend(
         handles=legend_elements,
         loc="lower left",
         bbox_to_anchor=(0.97, -0.19),
         frameon=True,
-        title="Disease Behavior",
+        title="WHO-like Major Sections/Lineages",
         fontsize=10,
     )
