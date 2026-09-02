@@ -51,7 +51,9 @@ class TableFigure(BaseFigure):
         else:
             display_df = df.copy()
 
-        text_df = display_df.map(lambda x: f"{x:.4f}" if pd.notna(x) else "")
+        text_df = display_df.apply(
+            lambda col: col.map(lambda x: f"{x:.4f}" if pd.notna(x) else "")
+        )
 
         fig_width = max(8, len(display_df.columns) * 2.5)
         fig_height = max(2.5, len(display_df.index) * 0.8)
