@@ -16,7 +16,7 @@ class BaseDecoder(ABC):
 
     def get_last_decorated_prompt(self) -> str | None:
         """Return the last prepared prompt, if any."""
-        return self._last_decorated_prompt
+        return getattr(self, "_last_decorated_prompt", None)
 
     def validate_ready(self) -> None:
         """Validate decoder runtime prerequisites before generation."""
