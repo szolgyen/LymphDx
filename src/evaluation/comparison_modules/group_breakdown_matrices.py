@@ -43,7 +43,13 @@ def _load_group_mapping(
                     source = row[source_col]
                     target = row[target_col]
                     if pd.notna(source) and pd.notna(target):
-                        mapping[str(source).strip()] = str(target).strip()
+                        source_key = str(source).strip()
+                        if source_col == "Code":
+                            try:
+                                source_key = str(int(float(source_key)))
+                            except (TypeError, ValueError):
+                                pass
+                        mapping[source_key] = str(target).strip()
         except (FileNotFoundError, ValueError, KeyError) as e:
             print(f"Warning: Could not load mapping from {dictionary_path}: {e}")
     else:
