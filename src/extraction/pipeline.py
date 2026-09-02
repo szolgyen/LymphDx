@@ -42,8 +42,6 @@ class ExtractionPipeline:
                 prompt = build_extraction_prompt_from_template(
                     template=self.prompt_template,
                     input_text=report.text,
-                    allowed_diagnoses=self.allowed_diagnoses,
-                    include_diagnosis_constraints=False,
                 )
                 logger.debug("Running extraction for report_index=%d", idx)
                 # Separate generate and parse to capture raw output on error
