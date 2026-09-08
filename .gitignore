@@ -218,5 +218,7 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Outputs
+# Outputs and local notebooks
 outputs
+deidentification_notebook.ipynb
+exploring_outputs.ipynb
