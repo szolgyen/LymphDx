@@ -16,6 +16,7 @@ from .evaluation_modules import dataframe_builders
 from .evaluation_modules import metrics_calculators
 from .evaluation_modules import analysis_functions
 from .evaluation_modules import plotting_generators
+from postprocessing import ontology
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ def run_evaluation(
     ontology_matching: bool = False,
     dictionary_excel_path: Path | str | None = None,
     major_group: str | None = None,
+    code_to_groups: dict | None = None,
 ) -> None:
     """Run complete evaluation pipeline.
 
@@ -52,6 +54,7 @@ def run_evaluation(
         ontology_matching: Whether to run in ontology matching mode (skips score-based analysis).
         dictionary_excel_path: Path to Excel file containing diagnosis group mappings.
         major_group: Group to use for organizing confusion matrix axis labels (e.g., 'group_3', 'group_4').
+        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Raises:
         ValueError: If group_terminology is not provided.
@@ -175,6 +178,7 @@ def run_evaluation(
         group_terminology=group_terminology,
         dictionary_excel_path=dictionary_excel_path,
         major_group=major_group,
+        code_to_groups=code_to_groups,
     )
     logger.info("Evaluation completed successfully")
 
@@ -200,6 +204,7 @@ def _write_evaluation_outputs(
     group_terminology: dict[str, str] | None = None,
     dictionary_excel_path: Path | str | None = None,
     major_group: str | None = None,
+    code_to_groups: dict | None = None,
 ) -> None:
     """Write all evaluation outputs to files and generate visualizations.
 
@@ -350,6 +355,7 @@ def _write_evaluation_outputs(
                 group_terminology,
                 dictionary_excel_path,
                 major_group,
+                code_to_groups,
             )
 
     # Generate container confusion matrix plots for each diagnosis group (if data is available)
@@ -379,6 +385,7 @@ def _write_evaluation_outputs(
                     group_terminology,
                     dictionary_excel_path,
                     major_group,
+                    code_to_groups,
                 )
 
 
@@ -408,6 +415,10 @@ def main(run_name: str | None = None) -> None:
         logger.error("run_name must be provided to construct input/output paths.")
         raise ValueError("run_name must be provided to construct input/output paths.")
 
+    # Load ontology to get code_to_groups mapping
+    logger.info("Loading diagnosis ontology from %s", dictionary_excel_path)
+    _, code_to_groups, _ = ontology.load_ontology(dictionary_excel_path)
+
     run_evaluation(
         gt_excel=Path(config["validation_file"]),
         predictions_jsonl=predictions_jsonl,
@@ -419,6 +430,7 @@ def main(run_name: str | None = None) -> None:
         ontology_matching=ontology_matching,
         dictionary_excel_path=dictionary_excel_path,
         major_group=major_group,
+        code_to_groups=code_to_groups,
     )
 
 

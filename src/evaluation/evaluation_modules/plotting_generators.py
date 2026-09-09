@@ -129,60 +129,88 @@ def generate_coverage_accuracy_tradeoff_plot(
     plt.close(fig)
 
 
-def _get_group_column_name(group_key: str) -> str:
-    """Get the Excel column name for a given group key.
-
-    Args:
-        group_key: Group key (e.g., "group_1", "group_2", "group_3", "group_4").
-
-    Returns:
-        Excel column name corresponding to the group.
-    """
-    group_column_map = {
-        "group_1": "WHO-like Subcategories",
-        "group_2": "WHO-like Categories",
-        "group_3": "WHO-like Major Sections/Lineages",
-        "group_4": "Diagnostic group 4",
-    }
-    return group_column_map.get(group_key, "")
-
-
-def _load_group_to_group_mapping(
-    dictionary_excel_path: Path | str,
-    source_column: str,
-    target_column: str,
+def _build_label_to_major_mapping_from_codes(
+    report_df: pd.DataFrame,
+    group_key: str,
+    major_group: str,
+    code_to_groups: dict,
 ) -> dict[str, str]:
-    """Load mapping from one diagnosis group to another from Excel reference file.
+    """Build a mapping from diagnosis labels to their major_group classification.
+
+    Uses the actual diagnosis codes and their direct group mappings from code_to_groups,
+    avoiding generalized group-to-group mappings that may lose code-level specificity.
+    Checks both GT and predicted columns to handle predicted-only labels.
 
     Args:
-        dictionary_excel_path: Path to the Excel file containing diagnosis group mappings.
-        source_column: Column name to map from (e.g., "WHO-like Categories").
-        target_column: Column name to map to (e.g., "WHO-like Major Sections/Lineages").
+        report_df: Report-level DataFrame containing gt_code, pred_code, and group columns.
+        group_key: Source group key (e.g., "group_2").
+        major_group: Target major group key (e.g., "group_4").
+        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Returns:
-        Dictionary mapping source group categories to target group categories.
+        Dictionary mapping label values to their major_group values.
     """
     mapping = {}
-    excel_path = Path(dictionary_excel_path)
+    # Normalize group keys by removing underscore (group_1 -> group1)
+    group_normalized = group_key.replace("_", "")
+    major_normalized = major_group.replace("_", "")
 
-    if excel_path.exists():
-        try:
-            df_mapping = pd.read_excel(excel_path)
-            if (
-                source_column in df_mapping.columns
-                and target_column in df_mapping.columns
-            ):
-                for idx, row in df_mapping.iterrows():
-                    source = row[source_column]
-                    target = row[target_column]
-                    if pd.notna(source) and pd.notna(target):
-                        mapping[str(source).strip()] = str(target).strip()
-        except Exception as e:
-            logger.warning(
-                f"Could not load mapping from {excel_path} ({source_column} -> {target_column}): {e}"
+    gt_group_column = f"gt_{group_normalized}"
+    pred_group_column = f"pred_{group_normalized}"
+    gt_major_column = f"gt_{major_normalized}"
+    pred_major_column = f"pred_{major_normalized}"
+
+    # Collect labels from both GT and predicted columns
+    all_group_labels = set()
+    if gt_group_column in report_df.columns:
+        all_group_labels.update(report_df[gt_group_column].dropna().unique())
+    if pred_group_column in report_df.columns:
+        all_group_labels.update(report_df[pred_group_column].dropna().unique())
+
+    if not all_group_labels:
+        logger.warning(f"No labels found in {gt_group_column} or {pred_group_column}")
+        return mapping
+
+    # For each unique label, find its major_group values from both GT and predicted rows
+    for label in all_group_labels:
+        major_values = []
+
+        # Look in GT rows where this label appears in GT column
+        if (
+            gt_group_column in report_df.columns
+            and gt_major_column in report_df.columns
+        ):
+            subset_gt = report_df[report_df[gt_group_column] == label]
+            major_values.extend(subset_gt[gt_major_column].dropna().unique().tolist())
+
+        # Look in predicted rows where this label appears in pred column
+        if (
+            pred_group_column in report_df.columns
+            and pred_major_column in report_df.columns
+        ):
+            subset_pred = report_df[report_df[pred_group_column] == label]
+            major_values.extend(
+                subset_pred[pred_major_column].dropna().unique().tolist()
             )
-    else:
-        logger.warning(f"Excel dictionary file not found at {excel_path}")
+
+        if not major_values:
+            continue
+
+        if len(major_values) == 1:
+            # Simple case: all codes with this label map to the same major_group
+            mapping[label] = major_values[0]
+        else:
+            # Multiple major_group values for this label; use most common
+            from collections import Counter
+
+            major_counts = Counter(major_values)
+            most_common = major_counts.most_common(1)[0][0]
+            mapping[label] = most_common
+
+            logger.debug(
+                f"Label '{label}' has multiple major_group mappings: {major_counts}; "
+                f"using most common: {most_common}"
+            )
 
     return mapping
 
@@ -233,11 +261,12 @@ def generate_diagnosis_group_confusion_matrix(
     group_terminology: dict[str, str] | None = None,
     dictionary_excel_path: Path | str | None = None,
     major_group: str | None = None,
+    code_to_groups: dict | None = None,
 ) -> None:
     """Generate normalized confusion matrix heatmap for a diagnosis group.
 
     Creates a confusion matrix visualization with special handling for grouping by major_group:
-    - Sorts categories by major_group disease behavior
+    - Sorts categories by their actual underlying code's group classification
     - Color-codes labels by major_group category
     - Adds separators between major_group regions
     - Includes legend for disease behavior categories
@@ -250,6 +279,7 @@ def generate_diagnosis_group_confusion_matrix(
         dictionary_excel_path: Path to the Excel file containing diagnosis group mappings.
         major_group: Group to use for organizing axis labels and colors (e.g., "group_3", "group_4").
                     Defaults to "group_3" if not specified.
+        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Raises:
         ValueError: If group_terminology is not provided.
@@ -279,23 +309,19 @@ def generate_diagnosis_group_confusion_matrix(
 
     # Collect all unique categories from both GT and predictions
     all_labels = sorted(set(y_true) | set(y_pred))
+    # Collect only labels from ground truth (exclude predicted-only labels)
+    # all_labels = sorted(set(y_true))
 
-    # Load mapping from current group to major_group and customize sorting/appearance
+    # Build mapping from current group to major_group using actual code classifications
     source_to_major_mapping = {}
     major_order = []
     colors_map = {}
 
-    if dictionary_excel_path and group_key != major_group:
-        # Get source and target column names
-        source_column = _get_group_column_name(group_key)
-        target_column = _get_group_column_name(major_group)
-
-        if source_column and target_column:
-            source_to_major_mapping = _load_group_to_group_mapping(
-                dictionary_excel_path,
-                source_column=source_column,
-                target_column=target_column,
-            )
+    if code_to_groups and group_key != major_group:
+        # Use actual code classifications instead of generalized group mappings
+        source_to_major_mapping = _build_label_to_major_mapping_from_codes(
+            report_df, group_key, major_group, code_to_groups
+        )
 
     if source_to_major_mapping:
         major_order, colors_map = _get_major_group_categories_and_colors(
@@ -317,6 +343,9 @@ def generate_diagnosis_group_confusion_matrix(
     cm = confusion_matrix(y_true, y_pred, labels=all_labels, normalize="true")
     cm_df = pd.DataFrame(cm, index=all_labels, columns=all_labels)
     annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
+    # annot = cm_df.map(lambda x: "" if x == 0 else f"{x:d}")
+
+    # from matplotlib.colors import LogNorm
 
     # Create figure and heatmap
     fig, ax = plt.subplots(figsize=(15, 12))
@@ -325,6 +354,7 @@ def generate_diagnosis_group_confusion_matrix(
         annot=annot,
         fmt="",
         cmap="Blues",
+        # norm=LogNorm(vmin=1, vmax=cm_df.to_numpy().max()),
         ax=ax,
         cbar_kws={
             "location": "left",
@@ -472,6 +502,6 @@ def _apply_group_formatting(
         loc="lower left",
         bbox_to_anchor=(0.97, -0.19),
         frameon=True,
-        title=major_group_display,
+        title="Classification",  # major_group_display,
         fontsize=10,
     )
