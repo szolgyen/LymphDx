@@ -356,12 +356,17 @@ def generate_diagnosis_group_confusion_matrix(
         cmap="Blues",
         # norm=LogNorm(vmin=1, vmax=cm_df.to_numpy().max()),
         ax=ax,
+        annot_kws={"fontsize": 12},
         cbar_kws={
             "location": "left",
             "shrink": 1.0,
             "pad": 0.02,
         },
     )
+
+    cbar = ax.collections[-1].colorbar
+    cbar.set_label("Accuracy", fontsize=12)
+    cbar.ax.tick_params(labelsize=12)
 
     # Flip y-axis to show categories right-aligned
     ax.yaxis.tick_right()
@@ -407,17 +412,17 @@ def generate_diagnosis_group_confusion_matrix(
     # Wrap long labels for readability
     ax.set_yticklabels(
         [textwrap.fill(label.get_text(), width=30) for label in ax.get_yticklabels()],
-        fontsize=8,
+        fontsize=12,
         rotation=0,
     )
     ax.set_xticklabels(
         [textwrap.fill(label.get_text(), width=30) for label in ax.get_xticklabels()],
-        fontsize=8,
+        fontsize=12,
         rotation=45,
         ha="right",
     )
 
-    plt.title(f"Confusion Matrix for {group_display_name}", fontsize=15)
+    plt.title(f"Confusion Matrix for {group_display_name}", fontsize=20)
     plt.ylabel("True Label", fontsize=15)
     plt.xlabel("Predicted Label", fontsize=15)
     plt.tight_layout()
@@ -502,6 +507,7 @@ def _apply_group_formatting(
         loc="lower left",
         bbox_to_anchor=(0.97, -0.19),
         frameon=True,
+        title_fontsize=12,
         title="Classification",  # major_group_display,
-        fontsize=10,
+        fontsize=12,
     )
