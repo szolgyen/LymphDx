@@ -212,20 +212,46 @@ def _build_label_to_major_mapping_from_codes(
     major_normalized = major_group.replace("_", "")
 
     # Get column names for source and major group
-    gt_group_col = f"gt_{group_normalized}"
-    pred_group_col = f"pred_{group_normalized}"
+    if group_num == 0:
+        gt_group_col = "gt_code"
+        pred_group_col = "pred_code"
+    else:
+        gt_group_col = f"gt_{group_normalized}"
+        pred_group_col = f"pred_{group_normalized}"
     gt_major_col = f"gt_{major_normalized}"
     pred_major_col = f"pred_{major_normalized}"
 
     if gt_group_col not in df.columns and pred_group_col not in df.columns:
         return {}
 
+    def _normalize_label(label: object) -> str | None:
+        if pd.isna(label):
+            return None
+        label_str = str(label).strip()
+        if group_num == 0:
+            try:
+                return str(int(float(label_str)))
+            except (TypeError, ValueError):
+                pass
+        return label_str
+
+    gt_labels_normalized = (
+        df[gt_group_col].map(_normalize_label)
+        if gt_group_col in df.columns
+        else pd.Series(dtype="object")
+    )
+    pred_labels_normalized = (
+        df[pred_group_col].map(_normalize_label)
+        if pred_group_col in df.columns
+        else pd.Series(dtype="object")
+    )
+
     # Collect all unique labels from both GT and pred columns
     all_labels = set()
     if gt_group_col in df.columns:
-        all_labels.update(df[gt_group_col].dropna().unique())
+        all_labels.update(gt_labels_normalized.dropna().unique())
     if pred_group_col in df.columns:
-        all_labels.update(df[pred_group_col].dropna().unique())
+        all_labels.update(pred_labels_normalized.dropna().unique())
 
     # For each label, find its major_group values
     for label in all_labels:
@@ -233,12 +259,12 @@ def _build_label_to_major_mapping_from_codes(
 
         # Look in GT rows where this label appears
         if gt_group_col in df.columns and gt_major_col in df.columns:
-            subset_gt = df[df[gt_group_col] == label]
+            subset_gt = df[gt_labels_normalized == label]
             major_values.extend(subset_gt[gt_major_col].dropna().unique().tolist())
 
         # Look in predicted rows where this label appears
         if pred_group_col in df.columns and pred_major_col in df.columns:
-            subset_pred = df[df[pred_group_col] == label]
+            subset_pred = df[pred_labels_normalized == label]
             major_values.extend(subset_pred[pred_major_col].dropna().unique().tolist())
 
         if not major_values:
