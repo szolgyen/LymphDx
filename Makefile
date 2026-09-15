@@ -16,7 +16,7 @@ HF_TORCHVISION_VERSION ?= 0.21.0+cu124
 HF_TORCHAUDIO_VERSION ?= 2.6.0+cu124
 HF_TORCH_INDEX_URL ?= https://download.pytorch.org/whl/cu124
 
-.PHONY: help bootstrap envs env-hf env-vllm env-sglang env-ollama lockfiles lock-hf lock-vllm lock-sglang lock-ollama test-hf clean-envs
+.PHONY: help bootstrap python312 envs env-hf env-vllm env-sglang env-ollama lockfiles lock-hf lock-vllm lock-sglang lock-ollama test test-hf clean-envs
 
 help:
 	@echo "Available targets:"
@@ -28,30 +28,33 @@ help:
 	@echo "  make env-ollama       # create Ollama backend venv"
 	@echo "  make lockfiles        # regenerate backend lock files"
 
-bootstrap: lockfiles envs
+bootstrap: python312 lockfiles envs
 	@echo "Bootstrap complete."
+
+python312:
+	$(UV) python install 3.12
 
 envs: env-hf env-vllm env-sglang env-ollama
 
-env-hf:
-	$(UV) venv $(HF_ENV)
+env-hf: python312
+	$(UV) venv $(HF_ENV) --python 3.12 --managed-python
 	. $(HF_ENV)/bin/activate && $(UV) pip install -r requirements/hf/lock.txt
 	. $(HF_ENV)/bin/activate && $(UV) pip install --reinstall --index-url $(HF_TORCH_INDEX_URL) \
 		torch==$(HF_TORCH_VERSION) torchvision==$(HF_TORCHVISION_VERSION) torchaudio==$(HF_TORCHAUDIO_VERSION)
 	. $(HF_ENV)/bin/activate && $(UV) pip install -e .
 
-env-vllm:
-	$(UV) venv $(VLLM_ENV)
+env-vllm: python312
+	$(UV) venv $(VLLM_ENV) --python 3.12 --managed-python
 	. $(VLLM_ENV)/bin/activate && $(UV) pip install -r requirements/vllm/lock.txt
 	. $(VLLM_ENV)/bin/activate && $(UV) pip install -e .
 
-env-sglang:
-	$(UV) venv $(SGLANG_ENV)
+env-sglang: python312
+	$(UV) venv $(SGLANG_ENV) --python 3.12 --managed-python
 	. $(SGLANG_ENV)/bin/activate && $(UV) pip install -r requirements/sglang/lock.txt
 	. $(SGLANG_ENV)/bin/activate && $(UV) pip install -e .
 
-env-ollama:
-	$(UV) venv $(OLLAMA_ENV)
+env-ollama: python312
+	$(UV) venv $(OLLAMA_ENV) --python 3.12 --managed-python
 	. $(OLLAMA_ENV)/bin/activate && $(UV) pip install -r requirements/ollama/lock.txt
 	. $(OLLAMA_ENV)/bin/activate && $(UV) pip install -e .
 
@@ -68,9 +71,6 @@ lock-sglang:
 
 lock-ollama:
 	$(UV) pip compile --python 3.12 requirements/ollama/requirements.txt -o requirements/ollama/lock.txt
-
-test-hf:
-    PYTHONPATH=$$(pwd)/src $(HF_PY) scripts/run_pipeline.py --config configs/pipeline/run_pipeline.yaml --log-level DEBUG
 
 clean-envs:
 	rm -rf $(VENV_ROOT)
