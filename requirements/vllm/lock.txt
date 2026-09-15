@@ -259,6 +259,7 @@ networkx==3.6.1
     # via torch
 ninja==1.13.0
     # via
+    #   -r requirements/vllm/requirements.txt
     #   flashinfer-python
     #   vllm
 numba==0.65.0
