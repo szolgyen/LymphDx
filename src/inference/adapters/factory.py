@@ -33,6 +33,7 @@ def create_adapter(
     decoder: str = "none",
     allowed_diagnoses: set[str] | None = None,
     schema_model: type[BaseModel] | None = None,
+    server_base_url: str | None = None,
 ) -> BaseModelAdapter:
     backend_name = backend.strip().lower()
     if backend_name not in SUPPORTED_BACKENDS:
@@ -57,11 +58,13 @@ def create_adapter(
         )
 
     if backend_name == "vllm":
+        vllm_kwargs = {"base_url": server_base_url} if server_base_url else {}
         return VLLMAdapter(
             model=model,
             decoder=resolved_decoder,
             allowed_diagnoses=allowed_diagnoses,
             schema_model=schema_model,
+            **vllm_kwargs,
         )
 
     if backend_name == "sglang":
