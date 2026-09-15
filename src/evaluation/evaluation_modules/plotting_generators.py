@@ -129,80 +129,110 @@ def generate_coverage_accuracy_tradeoff_plot(
     plt.close(fig)
 
 
-def _load_group_to_group3_mapping(
-    dictionary_excel_path: Path | str,
-    source_column: str,
-    target_column: str = "WHO-like Major Sections/Lineages",
+def _build_label_to_major_mapping_from_codes(
+    report_df: pd.DataFrame,
+    group_key: str,
+    major_group: str,
+    code_to_groups: dict,
 ) -> dict[str, str]:
-    """Load mapping from a diagnosis group to group 3 from Excel reference file.
+    """Build a mapping from diagnosis labels to their major_group classification.
+
+    Uses the actual diagnosis codes and their direct group mappings from code_to_groups,
+    avoiding generalized group-to-group mappings that may lose code-level specificity.
+    Checks both GT and predicted columns to handle predicted-only labels.
 
     Args:
-        dictionary_excel_path: Path to the Excel file containing diagnosis group mappings.
-        source_column: Column name to map from (e.g., "WHO-like Categories").
-        target_column: Column name to map to (default: "WHO-like Major Sections/Lineages").
+        report_df: Report-level DataFrame containing gt_code, pred_code, and group columns.
+        group_key: Source group key (e.g., "group_2").
+        major_group: Target major group key (e.g., "group_4").
+        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Returns:
-        Dictionary mapping source group categories to group 3 categories.
+        Dictionary mapping label values to their major_group values.
     """
     mapping = {}
-    excel_path = Path(dictionary_excel_path)
+    # Normalize group keys by removing underscore (group_1 -> group1)
+    group_normalized = group_key.replace("_", "")
+    major_normalized = major_group.replace("_", "")
 
-    if excel_path.exists():
-        try:
-            df_mapping = pd.read_excel(excel_path)
-            if (
-                source_column in df_mapping.columns
-                and target_column in df_mapping.columns
-            ):
-                for idx, row in df_mapping.iterrows():
-                    source = row[source_column]
-                    target = row[target_column]
-                    if pd.notna(source) and pd.notna(target):
-                        mapping[str(source).strip()] = str(target).strip()
-        except Exception as e:
-            logger.warning(
-                f"Could not load mapping from {excel_path} ({source_column} -> {target_column}): {e}"
+    gt_group_column = f"gt_{group_normalized}"
+    pred_group_column = f"pred_{group_normalized}"
+    gt_major_column = f"gt_{major_normalized}"
+    pred_major_column = f"pred_{major_normalized}"
+
+    # Collect labels from both GT and predicted columns
+    all_group_labels = set()
+    if gt_group_column in report_df.columns:
+        all_group_labels.update(report_df[gt_group_column].dropna().unique())
+    if pred_group_column in report_df.columns:
+        all_group_labels.update(report_df[pred_group_column].dropna().unique())
+
+    if not all_group_labels:
+        logger.warning(f"No labels found in {gt_group_column} or {pred_group_column}")
+        return mapping
+
+    # For each unique label, find its major_group values from both GT and predicted rows
+    for label in all_group_labels:
+        major_values = []
+
+        # Look in GT rows where this label appears in GT column
+        if (
+            gt_group_column in report_df.columns
+            and gt_major_column in report_df.columns
+        ):
+            subset_gt = report_df[report_df[gt_group_column] == label]
+            major_values.extend(subset_gt[gt_major_column].dropna().unique().tolist())
+
+        # Look in predicted rows where this label appears in pred column
+        if (
+            pred_group_column in report_df.columns
+            and pred_major_column in report_df.columns
+        ):
+            subset_pred = report_df[report_df[pred_group_column] == label]
+            major_values.extend(
+                subset_pred[pred_major_column].dropna().unique().tolist()
             )
-    else:
-        logger.warning(f"Excel dictionary file not found at {excel_path}")
+
+        if not major_values:
+            continue
+
+        if len(major_values) == 1:
+            # Simple case: all codes with this label map to the same major_group
+            mapping[label] = major_values[0]
+        else:
+            # Multiple major_group values for this label; use most common
+            from collections import Counter
+
+            major_counts = Counter(major_values)
+            most_common = major_counts.most_common(1)[0][0]
+            mapping[label] = most_common
+
+            logger.debug(
+                f"Label '{label}' has multiple major_group mappings: {major_counts}; "
+                f"using most common: {most_common}"
+            )
 
     return mapping
 
 
-def _load_group2_to_group3_mapping(dictionary_excel_path: Path | str) -> dict[str, str]:
-    """Load mapping between diagnosis group 2 and group 3 from Excel reference file.
-
-    Args:
-        dictionary_excel_path: Path to the Excel file containing diagnosis group mappings.
-
-    Returns:
-        Dictionary mapping group 2 categories to group 3 categories.
-    """
-    return _load_group_to_group3_mapping(
-        dictionary_excel_path,
-        source_column="WHO-like Categories",
-        target_column="WHO-like Major Sections/Lineages",
-    )
-
-
-def _get_group3_categories_and_colors(
-    g2_to_g3_mapping: dict[str, str],
+def _get_major_group_categories_and_colors(
+    source_to_major_mapping: dict[str, str],
 ) -> tuple[list[str], dict[str, str]]:
-    """Extract unique group3 categories from mapping and generate colors.
+    """Extract unique major group categories from mapping and generate colors.
 
     Args:
-        g2_to_g3_mapping: Mapping from group2 to group3 categories.
+        source_to_major_mapping: Mapping from source group to major group categories.
 
     Returns:
-        Tuple of (ordered_group3_categories, colors_map).
+        Tuple of (ordered_major_categories, colors_map).
     """
-    # Extract unique group3 categories in order of first appearance
-    unique_g3 = []
+    # Extract unique major group categories in order of first appearance
+    unique_major = []
     seen = set()
-    for g3 in g2_to_g3_mapping.values():
-        if g3 not in seen:
-            unique_g3.append(g3)
-            seen.add(g3)
+    for major in source_to_major_mapping.values():
+        if major not in seen:
+            unique_major.append(major)
+            seen.add(major)
 
     # Generate colors dynamically for all categories
     color_palette = [
@@ -218,10 +248,10 @@ def _get_group3_categories_and_colors(
     ]
 
     colors_map = {}
-    for i, g3 in enumerate(unique_g3):
-        colors_map[g3] = color_palette[i % len(color_palette)]
+    for i, major in enumerate(unique_major):
+        colors_map[major] = color_palette[i % len(color_palette)]
 
-    return unique_g3, colors_map
+    return unique_major, colors_map
 
 
 def generate_diagnosis_group_confusion_matrix(
@@ -230,21 +260,26 @@ def generate_diagnosis_group_confusion_matrix(
     output_path: Path,
     group_terminology: dict[str, str] | None = None,
     dictionary_excel_path: Path | str | None = None,
+    major_group: str | None = None,
+    code_to_groups: dict | None = None,
 ) -> None:
     """Generate normalized confusion matrix heatmap for a diagnosis group.
 
-    Creates a confusion matrix visualization with special handling for group_2:
-    - Sorts categories by group_3 disease behavior
-    - Color-codes labels by group_3 category
-    - Adds separators between group_3 regions
+    Creates a confusion matrix visualization with special handling for grouping by major_group:
+    - Sorts categories by their actual underlying code's group classification
+    - Color-codes labels by major_group category
+    - Adds separators between major_group regions
     - Includes legend for disease behavior categories
 
     Args:
         report_df: Report-level DataFrame.
-        group_key: Group key to analyze (e.g., "group_1", "group_2", "group_3").
+        group_key: Group key to analyze (e.g., "group_1", "group_2", "group_3", "group_4").
         output_path: Path to save the generated PNG file.
         group_terminology: Mapping of group keys to display names.
         dictionary_excel_path: Path to the Excel file containing diagnosis group mappings.
+        major_group: Group to use for organizing axis labels and colors (e.g., "group_3", "group_4").
+                    Defaults to "group_3" if not specified.
+        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Raises:
         ValueError: If group_terminology is not provided.
@@ -252,6 +287,10 @@ def generate_diagnosis_group_confusion_matrix(
     if group_terminology is None:
         logger.error("group_terminology must be provided in the configuration.")
         raise ValueError("group_terminology must be provided in the configuration.")
+
+    # Default to group_3 if major_group not specified
+    if major_group is None:
+        major_group = "group_3"
 
     # Get display name for this group
     group_display_name = group_terminology.get(group_key, group_key)
@@ -270,35 +309,33 @@ def generate_diagnosis_group_confusion_matrix(
 
     # Collect all unique categories from both GT and predictions
     all_labels = sorted(set(y_true) | set(y_pred))
+    # Collect only labels from ground truth (exclude predicted-only labels)
+    # all_labels = sorted(set(y_true))
 
-    # Load group-to-group3 mapping and customize sorting/appearance
-    group_to_g3_mapping = {}
-    group3_order = []
+    # Build mapping from current group to major_group using actual code classifications
+    source_to_major_mapping = {}
+    major_order = []
     colors_map = {}
 
-    if dictionary_excel_path:
-        if group_key == "group_1":
-            group_to_g3_mapping = _load_group_to_group3_mapping(
-                dictionary_excel_path,
-                source_column="WHO-like Subcategories",
-                target_column="WHO-like Major Sections/Lineages",
-            )
-        elif group_key == "group_2":
-            group_to_g3_mapping = _load_group2_to_group3_mapping(dictionary_excel_path)
-
-    if group_to_g3_mapping:
-        group3_order, colors_map = _get_group3_categories_and_colors(
-            group_to_g3_mapping
+    if code_to_groups and group_key != major_group:
+        # Use actual code classifications instead of generalized group mappings
+        source_to_major_mapping = _build_label_to_major_mapping_from_codes(
+            report_df, group_key, major_group, code_to_groups
         )
 
-        # Sort labels by their group_3 category
+    if source_to_major_mapping:
+        major_order, colors_map = _get_major_group_categories_and_colors(
+            source_to_major_mapping
+        )
+
+        # Sort labels by their major_group category
         def get_sort_key(label: str) -> tuple:
-            group3 = group_to_g3_mapping.get(label, "Miscellaneous")
+            major = source_to_major_mapping.get(label, "Miscellaneous")
             try:
-                g3_priority = group3_order.index(group3)
+                major_priority = major_order.index(major)
             except ValueError:
-                g3_priority = len(group3_order)
-            return (g3_priority, label)
+                major_priority = len(major_order)
+            return (major_priority, label)
 
         all_labels = sorted(all_labels, key=get_sort_key)
 
@@ -306,6 +343,9 @@ def generate_diagnosis_group_confusion_matrix(
     cm = confusion_matrix(y_true, y_pred, labels=all_labels, normalize="true")
     cm_df = pd.DataFrame(cm, index=all_labels, columns=all_labels)
     annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
+    # annot = cm_df.map(lambda x: "" if x == 0 else f"{x:d}")
+
+    # from matplotlib.colors import LogNorm
 
     # Create figure and heatmap
     fig, ax = plt.subplots(figsize=(15, 12))
@@ -314,7 +354,9 @@ def generate_diagnosis_group_confusion_matrix(
         annot=annot,
         fmt="",
         cmap="Blues",
+        # norm=LogNorm(vmin=1, vmax=cm_df.to_numpy().max()),
         ax=ax,
+        annot_kws={"fontsize": 12},
         cbar_kws={
             "location": "left",
             "shrink": 1.0,
@@ -322,23 +364,27 @@ def generate_diagnosis_group_confusion_matrix(
         },
     )
 
+    cbar = ax.collections[-1].colorbar
+    cbar.set_label("Accuracy", fontsize=12)
+    cbar.ax.tick_params(labelsize=12)
+
     # Flip y-axis to show categories right-aligned
     ax.yaxis.tick_right()
     ax.yaxis.set_label_position("right")
     ax.tick_params(axis="y", labelleft=False, labelright=True)
 
-    # Add boxes around diagonal blocks for group_1 and group_2
-    if group_to_g3_mapping:
-        group3_regions = {}
+    # Add boxes around diagonal blocks for mapped groups
+    if source_to_major_mapping:
+        major_regions = {}
         for idx, label in enumerate(all_labels):
-            group3 = group_to_g3_mapping.get(label, "Miscellaneous")
-            if group3 not in group3_regions:
-                group3_regions[group3] = [idx, idx]
+            major = source_to_major_mapping.get(label, "Miscellaneous")
+            if major not in major_regions:
+                major_regions[major] = [idx, idx]
             else:
-                group3_regions[group3][1] = idx
+                major_regions[major][1] = idx
 
-        # Draw rectangle for each group3 block
-        for group3, (start, end) in group3_regions.items():
+        # Draw rectangle for each major_group block
+        for major, (start, end) in major_regions.items():
             size = end - start + 1
             rect = Rectangle(
                 (start, start),
@@ -351,26 +397,32 @@ def generate_diagnosis_group_confusion_matrix(
             )
             ax.add_patch(rect)
 
-    # Add special formatting for group_1 and group_2
-    if group_key in ("group_1", "group_2") and group_to_g3_mapping:
+    # Add special formatting for group_1 and group_2 when grouped by major_group
+    if group_key in ("group_1", "group_2") and source_to_major_mapping:
+        major_group_display = group_terminology.get(major_group, major_group)
         _apply_group_formatting(
-            ax, all_labels, group_to_g3_mapping, group3_order, colors_map
+            ax,
+            all_labels,
+            source_to_major_mapping,
+            major_order,
+            colors_map,
+            major_group_display,
         )
 
     # Wrap long labels for readability
     ax.set_yticklabels(
         [textwrap.fill(label.get_text(), width=30) for label in ax.get_yticklabels()],
-        fontsize=8,
+        fontsize=12,
         rotation=0,
     )
     ax.set_xticklabels(
         [textwrap.fill(label.get_text(), width=30) for label in ax.get_xticklabels()],
-        fontsize=8,
+        fontsize=12,
         rotation=45,
         ha="right",
     )
 
-    plt.title(f"Confusion Matrix for {group_display_name}", fontsize=15)
+    plt.title(f"Confusion Matrix for {group_display_name}", fontsize=20)
     plt.ylabel("True Label", fontsize=15)
     plt.xlabel("Predicted Label", fontsize=15)
     plt.tight_layout()
@@ -381,27 +433,29 @@ def generate_diagnosis_group_confusion_matrix(
 def _apply_group_formatting(
     ax: plt.Axes,
     all_labels: list[str],
-    group_to_g3_mapping: dict[str, str],
-    group3_order: list[str],
+    source_to_major_mapping: dict[str, str],
+    major_order: list[str],
     colors_map: dict[str, str],
+    major_group_display: str = "Major Group",
 ) -> None:
     """Apply group-specific formatting: colors, separators, and legend.
 
     Args:
         ax: Matplotlib axes to format.
         all_labels: Sorted list of all group labels.
-        group_to_g3_mapping: Mapping from group labels to group_3 categories.
-        group3_order: Ordered list of group_3 categories.
-        colors_map: Mapping from group_3 categories to hex colors.
+        source_to_major_mapping: Mapping from source group labels to major group categories.
+        major_order: Ordered list of major group categories.
+        colors_map: Mapping from major group categories to hex colors.
+        major_group_display: Display name for the major group (used in legend title).
     """
     # Color y-axis (true) labels
     for label in ax.get_yticklabels():
         label_text = label.get_text()
         if label_text:
-            group3 = group_to_g3_mapping.get(
-                label_text, group3_order[-1] if group3_order else "Miscellaneous"
+            major = source_to_major_mapping.get(
+                label_text, major_order[-1] if major_order else "Miscellaneous"
             )
-            color = colors_map.get(group3, "black")
+            color = colors_map.get(major, "black")
             label.set_color(color)
             label.set_fontweight("bold")
 
@@ -409,41 +463,41 @@ def _apply_group_formatting(
     for label in ax.get_xticklabels():
         label_text = label.get_text()
         if label_text:
-            group3 = group_to_g3_mapping.get(
-                label_text, group3_order[-1] if group3_order else "Miscellaneous"
+            major = source_to_major_mapping.get(
+                label_text, major_order[-1] if major_order else "Miscellaneous"
             )
-            color = colors_map.get(group3, "black")
+            color = colors_map.get(major, "black")
             label.set_color(color)
             label.set_fontweight("bold")
 
-    # Add vertical separators between group_3 categories
-    current_g3 = None
+    # Add vertical separators between major group categories
+    current_major = None
     for idx, label in enumerate(all_labels):
-        group3 = group_to_g3_mapping.get(
-            label, group3_order[-1] if group3_order else "Miscellaneous"
+        major = source_to_major_mapping.get(
+            label, major_order[-1] if major_order else "Miscellaneous"
         )
-        if current_g3 is not None and group3 != current_g3:
+        if current_major is not None and major != current_major:
             ax.axvline(x=idx, color="black", linewidth=0.5, linestyle="--")
-        current_g3 = group3
+        current_major = major
 
-    # Add horizontal separators between group_3 categories
-    current_g3 = None
+    # Add horizontal separators between major group categories
+    current_major = None
     for idx, label in enumerate(all_labels):
-        group3 = group_to_g3_mapping.get(
-            label, group3_order[-1] if group3_order else "Miscellaneous"
+        major = source_to_major_mapping.get(
+            label, major_order[-1] if major_order else "Miscellaneous"
         )
-        if current_g3 is not None and group3 != current_g3:
+        if current_major is not None and major != current_major:
             ax.axhline(y=idx, color="black", linewidth=0.5, linestyle="--")
-        current_g3 = group3
+        current_major = major
 
-    # Add legend for disease behavior categories
+    # Add legend for major group categories
     legend_elements = [
-        Patch(facecolor=colors_map[g3], label=g3)
-        for g3 in group3_order
-        if g3
+        Patch(facecolor=colors_map[major], label=major)
+        for major in major_order
+        if major
         in [
-            group_to_g3_mapping.get(
-                name, group3_order[-1] if group3_order else "Miscellaneous"
+            source_to_major_mapping.get(
+                name, major_order[-1] if major_order else "Miscellaneous"
             )
             for name in all_labels
         ]
@@ -453,6 +507,7 @@ def _apply_group_formatting(
         loc="lower left",
         bbox_to_anchor=(0.97, -0.19),
         frameon=True,
-        title="WHO-like Major Sections/Lineages",
-        fontsize=10,
+        title_fontsize=12,
+        title="Classification",  # major_group_display,
+        fontsize=12,
     )

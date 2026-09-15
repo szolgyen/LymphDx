@@ -117,6 +117,7 @@ def _build_report_row(
     gt_group1 = gt_row["GT Report WHO-like Subcategories"]
     gt_group2 = gt_row["GT Report WHO-like Categories"]
     gt_group3 = gt_row["GT Report WHO-like Major Sections/Lineages"]
+    gt_group4 = gt_row["GT Report Diagnosis Group 4"]
 
     # Extract container ground-truth fields (may be NaN)
     gt_container_code = gt_row.get("GT Container Diagnosis Code")
@@ -129,18 +130,32 @@ def _build_report_row(
     gt_container_group1 = gt_row.get("GT Container WHO-like Subcategories")
     gt_container_group2 = gt_row.get("GT Container WHO-like Categories")
     gt_container_group3 = gt_row.get("GT Container WHO-like Major Sections/Lineages")
+    gt_container_group4 = gt_row.get("GT Container Diagnosis Group 4")
     if pd.isna(gt_container_group1):
         gt_container_group1 = None
     if pd.isna(gt_container_group2):
         gt_container_group2 = None
     if pd.isna(gt_container_group3):
         gt_container_group3 = None
+    if pd.isna(gt_container_group4):
+        gt_container_group4 = None
 
     # Extract top-k diagnosis codes for accuracy checks
     topk_codes = {
         k: extractors.extract_top_k_primary_diagnosis_codes(record, k)
         for k in range(1, max(top_k_values) + 1)
     }
+
+    top_1_container = extractors.extract_top_1_container_diagnosis(record)
+    pred_container_code = (
+        top_1_container.get("valid_diagnosis_code")
+        if top_1_container is not None
+        else None
+    )
+    if pred_container_code is not None and not pd.isna(pred_container_code):
+        pred_container_code = int(pred_container_code)
+    else:
+        pred_container_code = None
 
     # Extract top-k container diagnosis codes for accuracy checks
     topk_container_codes = (
@@ -156,15 +171,18 @@ def _build_report_row(
     pred_group1 = top_1.get("valid_primary_diagnosis_group_1")
     pred_group2 = top_1.get("valid_primary_diagnosis_group_2")
     pred_group3 = top_1.get("valid_primary_diagnosis_group_3")
+    pred_group4 = top_1.get("valid_primary_diagnosis_group_4")
 
     # Extract top-3 and top-5 group predictions
     top3_group1 = top_3_groups.get("valid_primary_diagnosis_group_1")
     top3_group2 = top_3_groups.get("valid_primary_diagnosis_group_2")
     top3_group3 = top_3_groups.get("valid_primary_diagnosis_group_3")
+    top3_group4 = top_3_groups.get("valid_primary_diagnosis_group_4")
 
     top5_group1 = top_5_groups.get("valid_primary_diagnosis_group_1")
     top5_group2 = top_5_groups.get("valid_primary_diagnosis_group_2")
     top5_group3 = top_5_groups.get("valid_primary_diagnosis_group_3")
+    top5_group4 = top_5_groups.get("valid_primary_diagnosis_group_4")
 
     # Extract boolean condition fields
     gt_has_differential = extractors.extract_boolean_field(
@@ -194,15 +212,18 @@ def _build_report_row(
         "case_id": case_id,
         "gt_code": gt_code,
         "pred_code": top_1.get("valid_primary_diagnosis_code"),
+        "pred_container_code": pred_container_code,
         "pred_score": top_1.get("valid_primary_diagnosis_score"),
         # Ground-truth group classifications
         "gt_group1": gt_group1,
         "gt_group2": gt_group2,
         "gt_group3": gt_group3,
+        "gt_group4": gt_group4,
         # Predicted group classifications
         "pred_group1": pred_group1,
         "pred_group2": pred_group2,
         "pred_group3": pred_group3,
+        "pred_group4": pred_group4,
         # Ground-truth boolean conditions
         "gt_has_differential": gt_has_differential,
         "gt_is_definitive": gt_is_definitive,
@@ -221,19 +242,23 @@ def _build_report_row(
         "top1_group1_correct": gt_group1 == pred_group1,
         "top1_group2_correct": gt_group2 == pred_group2,
         "top1_group3_correct": gt_group3 == pred_group3,
+        "top1_group4_correct": gt_group4 == pred_group4,
         # Top-3 group accuracy flags
         "top3_group1_correct": gt_group1 in top3_group1 if top3_group1 else False,
         "top3_group2_correct": gt_group2 in top3_group2 if top3_group2 else False,
         "top3_group3_correct": gt_group3 in top3_group3 if top3_group3 else False,
+        "top3_group4_correct": gt_group4 in top3_group4 if top3_group4 else False,
         # Top-5 group accuracy flags
         "top5_group1_correct": gt_group1 in top5_group1 if top5_group1 else False,
         "top5_group2_correct": gt_group2 in top5_group2 if top5_group2 else False,
         "top5_group3_correct": gt_group3 in top5_group3 if top5_group3 else False,
+        "top5_group4_correct": gt_group4 in top5_group4 if top5_group4 else False,
         # Container ground-truth group classifications
         "gt_container_code": gt_container_code,
         "gt_container_group1": gt_container_group1,
         "gt_container_group2": gt_container_group2,
         "gt_container_group3": gt_container_group3,
+        "gt_container_group4": gt_container_group4,
         # Container diagnosis accuracy flags (None if no GT container code)
         "container_top1_correct": gt_container_code in topk_container_codes.get(1, [])
         if gt_container_code is not None
@@ -291,6 +316,10 @@ def build_container_level_dataframe(
         if "container_top1_group3_correct" in container_df.columns:
             container_df["top1_group3_correct"] = container_df[
                 "container_top1_group3_correct"
+            ]
+        if "container_top1_group4_correct" in container_df.columns:
+            container_df["top1_group4_correct"] = container_df[
+                "container_top1_group4_correct"
             ]
 
     return container_df

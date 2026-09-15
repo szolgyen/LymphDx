@@ -187,6 +187,7 @@ figures:
       - "D+N+P+C"
 
   group_breakdown_matrices:
+    major_group: group_4
     results:
       - outputs/20260723_105303/evaluation
       - outputs/20260723_105530/evaluation
@@ -198,9 +199,11 @@ figures:
     output_group1: outputs/compare/group1_accuracy_breakdown_heatmap.png
     output_group2: outputs/compare/group2_accuracy_breakdown_heatmap.png
     output_group3: outputs/compare/group3_accuracy_breakdown_heatmap.png
+    output_group4: outputs/compare/group4_accuracy_breakdown_heatmap.png
     group1_title: "WHO-like Subcategories"
     group2_title: "WHO-like Categories"
     group3_title: "WHO-like Major Sections Lineages"
+    group4_title: "Diagnostic Group 4"
     figsize: [12, 10]
     dpi: 300
     cmap: RdYlGn

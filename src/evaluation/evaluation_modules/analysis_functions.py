@@ -232,11 +232,11 @@ def compute_accuracy_by_group(
     """Compute accuracy metrics stratified by diagnosis group.
 
     Breaks down metrics for each unique value in the specified group column
-    (e.g., gt_group1, gt_group2, gt_group3).
+    (e.g., gt_group1, gt_group2, gt_group3, gt_group4).
 
     Args:
         report_df: Report-level DataFrame.
-        group_column: Column name to group by (e.g., "gt_group1").
+        group_column: Column name to group by (e.g., "gt_group1", "gt_group2", "gt_group3", "gt_group4").
         group_terminology: Mapping of group keys to display names.
 
     Returns:

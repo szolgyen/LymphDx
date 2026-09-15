@@ -288,6 +288,7 @@ def build_diagnosis_results(results, prefix):
                 f"{prefix}_group_1": None,
                 f"{prefix}_group_2": None,
                 f"{prefix}_group_3": None,
+                f"{prefix}_group_4": None,
             }
         }
 
@@ -301,6 +302,7 @@ def build_diagnosis_results(results, prefix):
             f"{prefix}_group_1": result.get("group_1"),
             f"{prefix}_group_2": result.get("group_2"),
             f"{prefix}_group_3": result.get("group_3"),
+            f"{prefix}_group_4": result.get("group_4"),
         }
 
     return output

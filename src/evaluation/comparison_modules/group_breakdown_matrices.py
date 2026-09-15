@@ -1,11 +1,16 @@
 """Group breakdown accuracy matrices figure module.
 
-Generates 4 heatmap figures showing Primary_top1_accuracy broken down by:
+Generates heatmap figures showing Primary_top1_accuracy broken down by:
 - diagnosis (group0, from report_level_metrics.csv),
-- diagnosis groups (group1, group2, group3) across models.
+- diagnosis groups (group1, group2, group3, group4) across models.
+
+Supports configurable major_group parameter to determine which group is used
+for organizing and coloring the heatmap (e.g., major_group=group_4).
 """
 
+import logging
 import textwrap
+from collections import Counter
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -14,6 +19,8 @@ import seaborn as sns
 from matplotlib.patches import Patch
 
 from .base import BaseFigure
+
+logger = logging.getLogger(__name__)
 
 
 def _load_group_mapping(
@@ -73,15 +80,57 @@ def load_group2_to_group3_mapping(dictionary_path: str) -> dict:
     return _load_group_mapping(dictionary_path, "WHO-like Categories")
 
 
-def _get_group_mapping_for_number(group_num: int, dictionary_path: str | None) -> dict:
-    """Get the appropriate mapping function for a group number."""
-    if group_num == 0:
-        return load_group0_to_group3_mapping(dictionary_path)
-    elif group_num == 1:
-        return load_group1_to_group3_mapping(dictionary_path)
-    elif group_num == 2:
-        return load_group2_to_group3_mapping(dictionary_path)
+def load_group0_to_group4_mapping(dictionary_path: str) -> dict:
+    """Load diagnosis to group4 mapping."""
+    # Note: group4 mapping is done code-based, not via Excel
+    # This function kept for compatibility but actual mapping is code-based
     return {}
+
+
+def load_group1_to_group4_mapping(dictionary_path: str) -> dict:
+    """Load group1 to group4 mapping."""
+    # Note: group4 mapping is done code-based, not via Excel
+    return {}
+
+
+def load_group2_to_group4_mapping(dictionary_path: str) -> dict:
+    """Load group2 to group4 mapping."""
+    # Note: group4 mapping is done code-based, not via Excel
+    return {}
+
+
+def _get_group_mapping_for_number(
+    group_num: int, dictionary_path: str | None, major_group: str = "group_3"
+) -> dict:
+    """Get the appropriate mapping function for a group number.
+
+    Args:
+        group_num: Group number (0, 1, 2, 3, or 4)
+        dictionary_path: Path to Excel dictionary
+        major_group: Target group for mapping (e.g., "group_3" or "group_4")
+
+    Returns:
+        Mapping dictionary
+    """
+    if major_group == "group_4":
+        # When major_group is group_4, groups 0-2 map to group_4 (code-based)
+        # Return empty dict for now; actual mapping is code-based in _build_label_to_major_mapping_from_codes
+        if group_num in [0, 1, 2]:
+            return {}
+        elif group_num == 4:
+            return {}
+        else:
+            return {}
+    else:
+        # Default: groups 0-2 map to group_3
+        if group_num == 0:
+            return load_group0_to_group3_mapping(dictionary_path)
+        elif group_num == 1:
+            return load_group1_to_group3_mapping(dictionary_path)
+        elif group_num == 2:
+            return load_group2_to_group3_mapping(dictionary_path)
+        else:
+            return {}
 
 
 def _get_group3_categories_and_colors(
@@ -121,6 +170,119 @@ def _get_group3_categories_and_colors(
         colors_map[g3] = color_palette[i % len(color_palette)]
 
     return unique_g3, colors_map
+
+
+def _build_label_to_major_mapping_from_codes(
+    result_dir: Path,
+    group_num: int,
+    major_group: str,
+    code_to_groups: dict | None = None,
+) -> dict[str, str]:
+    """Build label-to-major_group mapping using actual diagnosis codes from report_level_metrics.csv.
+
+    Uses code_to_groups dict to map codes to their major_group classifications,
+    avoiding generalized group-to-group mappings that lose code-level specificity.
+
+    Args:
+        result_dir: Path to evaluation results directory
+        group_num: Source group number (0, 1, 2, 3)
+        major_group: Target group key (e.g., "group_4", "group_3")
+        code_to_groups: Mapping of diagnosis codes to their group classifications
+
+    Returns:
+        Dictionary mapping diagnosis labels to major_group values
+    """
+    if not code_to_groups:
+        return {}
+
+    mapping = {}
+    report_csv = result_dir / "report_level_metrics.csv"
+
+    if not report_csv.exists():
+        return {}
+
+    try:
+        df = pd.read_csv(report_csv)
+    except Exception as e:
+        logger.warning(f"Could not load report_level_metrics.csv: {e}")
+        return {}
+
+    # Normalize group key (remove underscore: group_4 -> group4)
+    group_normalized = f"group{group_num}"
+    major_normalized = major_group.replace("_", "")
+
+    # Get column names for source and major group
+    if group_num == 0:
+        gt_group_col = "gt_code"
+        pred_group_col = "pred_code"
+    else:
+        gt_group_col = f"gt_{group_normalized}"
+        pred_group_col = f"pred_{group_normalized}"
+    gt_major_col = f"gt_{major_normalized}"
+    pred_major_col = f"pred_{major_normalized}"
+
+    if gt_group_col not in df.columns and pred_group_col not in df.columns:
+        return {}
+
+    def _normalize_label(label: object) -> str | None:
+        if pd.isna(label):
+            return None
+        label_str = str(label).strip()
+        if group_num == 0:
+            try:
+                return str(int(float(label_str)))
+            except (TypeError, ValueError):
+                pass
+        return label_str
+
+    gt_labels_normalized = (
+        df[gt_group_col].map(_normalize_label)
+        if gt_group_col in df.columns
+        else pd.Series(dtype="object")
+    )
+    pred_labels_normalized = (
+        df[pred_group_col].map(_normalize_label)
+        if pred_group_col in df.columns
+        else pd.Series(dtype="object")
+    )
+
+    # Collect all unique labels from both GT and pred columns
+    all_labels = set()
+    if gt_group_col in df.columns:
+        all_labels.update(gt_labels_normalized.dropna().unique())
+    if pred_group_col in df.columns:
+        all_labels.update(pred_labels_normalized.dropna().unique())
+
+    # For each label, find its major_group values
+    for label in all_labels:
+        major_values = []
+
+        # Look in GT rows where this label appears
+        if gt_group_col in df.columns and gt_major_col in df.columns:
+            subset_gt = df[gt_labels_normalized == label]
+            major_values.extend(subset_gt[gt_major_col].dropna().unique().tolist())
+
+        # Look in predicted rows where this label appears
+        if pred_group_col in df.columns and pred_major_col in df.columns:
+            subset_pred = df[pred_labels_normalized == label]
+            major_values.extend(subset_pred[pred_major_col].dropna().unique().tolist())
+
+        if not major_values:
+            continue
+
+        if len(major_values) == 1:
+            mapping[label] = major_values[0]
+        else:
+            # Multiple values, use most common
+            major_counts = Counter(major_values)
+            most_common = major_counts.most_common(1)[0][0]
+            mapping[label] = most_common
+            logger.debug(
+                f"Label '{label}' has multiple major_group mappings: {major_counts}; "
+                f"using most common: {most_common}"
+            )
+
+    return mapping
 
 
 def _load_group_data_from_report(
@@ -203,10 +365,23 @@ def _load_group_data_from_report(
 
 
 def _load_group_data(
-    group_num: int, model_names: list, results: list, dictionary_path: str | None
+    group_num: int,
+    model_names: list,
+    results: list,
+    dictionary_path: str | None,
+    major_group: str = "group_3",
+    code_to_groups: dict | None = None,
 ) -> tuple[dict, pd.Series | None]:
     """
     Load group data for all models.
+
+    Args:
+        group_num: Group number (0, 1, 2, 3, or 4)
+        model_names: List of model names
+        results: List of result directories
+        dictionary_path: Path to Excel dictionary
+        major_group: Major group for organizing heatmap (e.g., "group_3" or "group_4")
+        code_to_groups: Mapping of codes to their group classifications
 
     Returns:
         Tuple of (group_data_dict, group_n_values) where group_data_dict maps
@@ -224,6 +399,8 @@ def _load_group_data(
             )
         elif group_num == 3:
             accuracy, n_values = _load_group3_data(result_dir, model_name)
+        elif group_num == 4:
+            accuracy, n_values = _load_group4_data(result_dir, model_name)
         else:
             accuracy, n_values = None, None
 
@@ -247,6 +424,37 @@ def _load_group3_data(
     csv_path = (
         result_dir / "report_accuracy_breakdown_who-like_major_sections_lineages.csv"
     )
+
+    if not csv_path.exists():
+        print(f"Warning: {csv_path} not found, skipping {model_name}")
+        return None, None
+
+    df_group = pd.read_csv(csv_path)
+
+    if "primary_top1_accuracy" not in df_group.columns:
+        print(f"Warning: 'primary_top1_accuracy' column not found in {csv_path}")
+        return None, None
+
+    if "group" not in df_group.columns:
+        return None, None
+
+    df_group = df_group.set_index("group")
+    accuracy = df_group["primary_top1_accuracy"]
+    n_values = df_group.get("n") if "n" in df_group.columns else None
+
+    return accuracy, n_values
+
+
+def _load_group4_data(
+    result_dir: Path, model_name: str
+) -> tuple[pd.Series | None, pd.Series | None]:
+    """
+    Load Group4 accuracy data from report_accuracy_breakdown_diagnostic_group_4.csv.
+
+    Returns:
+        Tuple of (accuracy_series, n_series) or (None, None) if file not found or invalid.
+    """
+    csv_path = result_dir / "report_accuracy_breakdown_diagnostic_group_4.csv"
 
     if not csv_path.exists():
         print(f"Warning: {csv_path} not found, skipping {model_name}")
@@ -359,44 +567,61 @@ def _draw_separators(ax, heatmap_df: pd.DataFrame, group3_mapping: dict) -> None
 
 
 def _style_labels_and_legend(
-    ax, heatmap_df: pd.DataFrame, group3_mapping: dict
+    ax,
+    heatmap_df: pd.DataFrame,
+    group_mapping: dict,
+    major_group: str = "group_3",
 ) -> None:
-    """Add color styling to labels and create legend based on group3 mapping."""
-    if not group3_mapping:
+    """Add color styling to labels and create legend based on group mapping.
+
+    Args:
+        ax: Matplotlib axis
+        heatmap_df: Heatmap DataFrame
+        group_mapping: Mapping from labels to major_group values
+        major_group: Name of the major group for legend title
+    """
+    if not group_mapping:
         return
 
-    # Get unique group3 categories in the data
-    group3_categories_in_data = {
-        group3_mapping.get(name, "Miscellaneous") for name in heatmap_df.index
+    # Get unique major group categories in the data
+    major_categories_in_data = {
+        group_mapping.get(name, "Miscellaneous") for name in heatmap_df.index
     }
 
-    # Dynamically extract group3 categories and colors from mapping
-    group3_order, colors_map = _get_group3_categories_and_colors(group3_mapping)
+    # Dynamically extract major group categories and colors from mapping
+    major_order, colors_map = _get_group3_categories_and_colors(group_mapping)
 
     # Color y-axis labels
     yticklabels = ax.get_yticklabels()
     for label in yticklabels:
         item_name = label.get_text()
         if item_name:
-            group3 = group3_mapping.get(item_name, "Miscellaneous")
-            color = colors_map.get(group3, "black")
+            major = group_mapping.get(item_name, "Miscellaneous")
+            color = colors_map.get(major, "black")
             label.set_color(color)
             label.set_fontweight("bold")
 
-    # Create legend
+    # Create legend with appropriate title
+    legend_title = (
+        "Classification"
+        if major_group == "group_4"
+        else "WHO-like Major Sections/Lineages"
+    )
+
     legend_elements = [
-        Patch(facecolor=colors_map[g3], label=g3)
-        for g3 in group3_order
-        if g3 in group3_categories_in_data
+        Patch(facecolor=colors_map[major], label=major)
+        for major in major_order
+        if major in major_categories_in_data
     ]
 
     ax.legend(
         handles=legend_elements,
         loc="lower left",
-        bbox_to_anchor=(-0.35, -0.2),
+        bbox_to_anchor=(-0.5, -0.2),
         frameon=True,
-        title="WHO-like Major Sections/Lineages",
-        fontsize=10,
+        title=legend_title,
+        fontsize=12,
+        title_fontsize=12,
     )
 
 
@@ -404,11 +629,12 @@ def _format_plot_labels(ax) -> None:
     """Format and wrap axis labels for readability."""
     ax.set_yticklabels(
         [textwrap.fill(label.get_text(), width=40) for label in ax.get_yticklabels()],
-        fontsize=8,
+        fontsize=12,
     )
     ax.set_xticklabels(
         [textwrap.fill(label.get_text(), width=15) for label in ax.get_xticklabels()],
         rotation=45,
+        fontsize=12,
         ha="right",
     )
     plt.yticks(rotation=0)
@@ -422,14 +648,16 @@ class GroupBreakdownMatricesFigure(BaseFigure):
         df: pd.DataFrame,
         name_mappings: dict | None = None,
         dictionary_path: str | None = None,
+        code_to_groups: dict | None = None,
     ) -> None:
         """
-        Generate 4 heatmap figures from group breakdown CSV files and diagnosis data.
+        Generate heatmap figures from group breakdown CSV files and diagnosis data.
 
         Args:
             df: DataFrame with performance metrics (used for model names if not in config).
             name_mappings: Dictionary for mapping metric names to display names.
-            dictionary_path: Path to the diagnosis dictionary for group0-3 to group3 mapping.
+            dictionary_path: Path to the diagnosis dictionary.
+            code_to_groups: Mapping of diagnosis codes to their group classifications.
         """
         # Get results directories from config
         if "results" not in self.config:
@@ -437,6 +665,7 @@ class GroupBreakdownMatricesFigure(BaseFigure):
             return
 
         results = self.config["results"]
+        major_group = self.config.get("major_group", "group_3")
 
         # Extract date-based names from paths
         date_based_names = [Path(r).parts[-2] for r in results]
@@ -446,10 +675,19 @@ class GroupBreakdownMatricesFigure(BaseFigure):
             name_mappings = self.config.get("name_mappings", {})
         model_names = [name_mappings.get(name, name) for name in date_based_names]
 
-        # Generate 4 figures for group0 (diagnosis), group1, group2, and group3
-        for group_num in range(4):
+        # Determine which groups to generate based on major_group
+        # For group_4, generate groups 0-4; for group_3, generate groups 0-3
+        max_group_num = 4 if major_group == "group_4" else 3
+
+        # Generate figures for each group
+        for group_num in range(max_group_num + 1):
             self._generate_group_figure(
-                group_num, model_names, results, dictionary_path
+                group_num,
+                model_names,
+                results,
+                dictionary_path,
+                major_group=major_group,
+                code_to_groups=code_to_groups,
             )
 
     def _generate_group_figure(
@@ -458,19 +696,28 @@ class GroupBreakdownMatricesFigure(BaseFigure):
         model_names: list,
         results: list,
         dictionary_path: str | None,
+        major_group: str = "group_3",
+        code_to_groups: dict | None = None,
     ) -> None:
         """
         Generate a single heatmap figure for a group.
 
         Args:
-            group_num: Group number (0 for diagnosis, 1, 2, or 3).
+            group_num: Group number (0 for diagnosis, 1, 2, 3, or 4).
             model_names: List of model names.
             results: List of results directories.
             dictionary_path: Path to the diagnosis dictionary.
+            major_group: Major group for organizing heatmap (e.g., "group_3" or "group_4").
+            code_to_groups: Mapping of diagnosis codes to their group classifications.
         """
         # Load data
         group_data, group_n_values = _load_group_data(
-            group_num, model_names, results, dictionary_path
+            group_num,
+            model_names,
+            results,
+            dictionary_path,
+            major_group=major_group,
+            code_to_groups=code_to_groups,
         )
 
         if not group_data:
@@ -480,20 +727,59 @@ class GroupBreakdownMatricesFigure(BaseFigure):
         # Prepare dataframe
         heatmap_df = _prepare_heatmap_dataframe(group_data, group_n_values, model_names)
 
-        # Sort by group3 mapping if applicable
-        if group_num in [0, 1, 2]:
-            group3_mapping = _get_group_mapping_for_number(group_num, dictionary_path)
-            heatmap_df = _sort_dataframe_by_group3(
-                heatmap_df, group_num, group3_mapping
-            )
+        # Sort by major_group mapping if applicable
+        if group_num in [0, 1, 2, 3] and group_num != int(
+            major_group.replace("group_", "")
+        ):
+            # Use code-based mapping if code_to_groups available; otherwise use Excel mapping
+            if major_group == "group_4" and code_to_groups:
+                # Build code-based label-to-group4 mapping using actual data
+                major_mapping = {}
+                for result_dir in results:
+                    result_path = Path(result_dir)
+                    label_mapping = _build_label_to_major_mapping_from_codes(
+                        result_path, group_num, major_group, code_to_groups
+                    )
+                    if label_mapping:
+                        major_mapping.update(label_mapping)
+                        break  # Use first mapping found (all should be same)
+            else:
+                # Use Excel-based mapping (for group_3 or backward compatibility)
+                major_mapping = _get_group_mapping_for_number(
+                    group_num, dictionary_path, major_group
+                )
+
+            if major_mapping:
+                heatmap_df = _sort_dataframe_by_group3(
+                    heatmap_df, group_num, major_mapping
+                )
 
         # Create figure
-        self._plot_heatmap(group_num, heatmap_df, dictionary_path)
+        self._plot_heatmap(
+            group_num,
+            heatmap_df,
+            dictionary_path,
+            major_group=major_group,
+            major_mapping=major_mapping if group_num in [0, 1, 2, 3] else {},
+        )
 
     def _plot_heatmap(
-        self, group_num: int, heatmap_df: pd.DataFrame, dictionary_path: str | None
+        self,
+        group_num: int,
+        heatmap_df: pd.DataFrame,
+        dictionary_path: str | None,
+        major_group: str = "group_3",
+        major_mapping: dict | None = None,
     ) -> None:
-        """Create and save the heatmap figure."""
+        """Create and save the heatmap figure.
+
+        Args:
+            group_num: Group number (0, 1, 2, 3, or 4)
+            heatmap_df: DataFrame prepared for heatmap
+            dictionary_path: Path to Excel dictionary
+            major_group: Major group for organizing heatmap
+            major_mapping: Mapping from labels to major_group values
+        """
         figsize = tuple(self.config.get("figsize", [12, 10]))
         dpi = self.config.get("dpi", 300)
         cmap = self.config.get("cmap", "RdYlGn")
@@ -528,19 +814,22 @@ class GroupBreakdownMatricesFigure(BaseFigure):
             cmap=cmap,
             vmin=vmin,
             vmax=vmax,
-            cbar_kws={"label": "Accuracy"},
+            cbar_kws={"pad": 0.02},
             mask=mask,
             ax=ax,
             linewidths=0.5,
             linecolor="gray",
-            annot_kws={"color": "black"},
+            annot_kws={"color": "black", "fontsize": 12},
         )
 
-        # Add styling for groups 0-2
-        if group_num in [0, 1, 2]:
-            group3_mapping = _get_group_mapping_for_number(group_num, dictionary_path)
-            _draw_separators(ax, heatmap_df, group3_mapping)
-            _style_labels_and_legend(ax, heatmap_df, group3_mapping)
+        cbar = ax.collections[-1].colorbar
+        cbar.set_label("Accuracy", fontsize=12)
+        cbar.ax.tick_params(labelsize=12)
+
+        # Add styling if mapping is available
+        if major_mapping:
+            _draw_separators(ax, heatmap_df, major_mapping)
+            _style_labels_and_legend(ax, heatmap_df, major_mapping, major_group)
 
         # Customize plot
         title = (
@@ -548,7 +837,7 @@ class GroupBreakdownMatricesFigure(BaseFigure):
             if self.config.get(f"group{group_num}_title")
             else f"Group {group_num} Accuracy Breakdown"
         )
-        ax.set_title(title, fontsize=14, fontweight="bold", pad=20)
+        ax.set_title(title, fontsize=14, fontweight="bold", pad=10)
         ax.set_ylabel("")
 
         # Format labels

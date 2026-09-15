@@ -16,6 +16,7 @@ from .evaluation_modules import dataframe_builders
 from .evaluation_modules import metrics_calculators
 from .evaluation_modules import analysis_functions
 from .evaluation_modules import plotting_generators
+from postprocessing import ontology
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ def run_evaluation(
     exclude_failed: bool = True,
     ontology_matching: bool = False,
     dictionary_excel_path: Path | str | None = None,
+    major_group: str | None = None,
+    code_to_groups: dict | None = None,
 ) -> None:
     """Run complete evaluation pipeline.
 
@@ -50,6 +53,8 @@ def run_evaluation(
         exclude_failed: Whether to exclude failed predictions (NaN scores).
         ontology_matching: Whether to run in ontology matching mode (skips score-based analysis).
         dictionary_excel_path: Path to Excel file containing diagnosis group mappings.
+        major_group: Group to use for organizing confusion matrix axis labels (e.g., 'group_3', 'group_4').
+        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Raises:
         ValueError: If group_terminology is not provided.
@@ -98,6 +103,9 @@ def run_evaluation(
     group3_accuracy_df = analysis_functions.compute_accuracy_by_group(
         report_df, "gt_group3", group_terminology
     )
+    group4_accuracy_df = analysis_functions.compute_accuracy_by_group(
+        report_df, "gt_group4", group_terminology
+    )
 
     # Build container-level DataFrame
     logger.info("Building container-level DataFrame")
@@ -115,12 +123,16 @@ def run_evaluation(
         container_group3_accuracy_df = analysis_functions.compute_accuracy_by_group(
             container_df, "gt_container_group3", group_terminology
         )
+        container_group4_accuracy_df = analysis_functions.compute_accuracy_by_group(
+            container_df, "gt_container_group4", group_terminology
+        )
     else:
         logger.warning("No container data available; skipping container-level analysis")
         container_df = pd.DataFrame()
         container_group1_accuracy_df = pd.DataFrame()
         container_group2_accuracy_df = pd.DataFrame()
         container_group3_accuracy_df = pd.DataFrame()
+        container_group4_accuracy_df = pd.DataFrame()
 
     rare_diagnosis_df = analysis_functions.compute_rare_diagnosis_metrics(
         report_df, params.get("RARE_DIAGNOSIS_THRESHOLD"), group_terminology
@@ -156,13 +168,17 @@ def run_evaluation(
         group1_accuracy_df=group1_accuracy_df,
         group2_accuracy_df=group2_accuracy_df,
         group3_accuracy_df=group3_accuracy_df,
+        group4_accuracy_df=group4_accuracy_df,
         container_df=container_df,
         container_group1_accuracy_df=container_group1_accuracy_df,
         container_group2_accuracy_df=container_group2_accuracy_df,
         container_group3_accuracy_df=container_group3_accuracy_df,
+        container_group4_accuracy_df=container_group4_accuracy_df,
         output_files_enabled=output_files_enabled,
         group_terminology=group_terminology,
         dictionary_excel_path=dictionary_excel_path,
+        major_group=major_group,
+        code_to_groups=code_to_groups,
     )
     logger.info("Evaluation completed successfully")
 
@@ -178,13 +194,17 @@ def _write_evaluation_outputs(
     group1_accuracy_df: pd.DataFrame,
     group2_accuracy_df: pd.DataFrame,
     group3_accuracy_df: pd.DataFrame,
+    group4_accuracy_df: pd.DataFrame,
     container_df: pd.DataFrame,
     container_group1_accuracy_df: pd.DataFrame,
     container_group2_accuracy_df: pd.DataFrame,
     container_group3_accuracy_df: pd.DataFrame,
+    container_group4_accuracy_df: pd.DataFrame,
     output_files_enabled: dict[str, bool],
     group_terminology: dict[str, str] | None = None,
     dictionary_excel_path: Path | str | None = None,
+    major_group: str | None = None,
+    code_to_groups: dict | None = None,
 ) -> None:
     """Write all evaluation outputs to files and generate visualizations.
 
@@ -199,13 +219,16 @@ def _write_evaluation_outputs(
         group1_accuracy_df: DataFrame with group1 accuracy breakdown.
         group2_accuracy_df: DataFrame with group2 accuracy breakdown.
         group3_accuracy_df: DataFrame with group3 accuracy breakdown.
+        group4_accuracy_df: DataFrame with group4 accuracy breakdown.
         container_df: Container-level DataFrame.
         container_group1_accuracy_df: DataFrame with container group1 accuracy breakdown.
         container_group2_accuracy_df: DataFrame with container group2 accuracy breakdown.
         container_group3_accuracy_df: DataFrame with container group3 accuracy breakdown.
+        container_group4_accuracy_df: DataFrame with container group4 accuracy breakdown.
         output_files_enabled: Mapping of output types to boolean flags indicating whether to generate them.
         group_terminology: Mapping of group keys to display names.
         dictionary_excel_path: Path to Excel file containing diagnosis group mappings.
+        major_group: Group to use for organizing confusion matrix axis labels (e.g., 'group_3', 'group_4').
 
     Raises:
         ValueError: If group_terminology is not provided.
@@ -223,12 +246,15 @@ def _write_evaluation_outputs(
         "OUTPUT_ACCURACY_BREAKDOWN_GROUP_1": "report_accuracy_breakdown_group_1.csv",
         "OUTPUT_ACCURACY_BREAKDOWN_GROUP_2": "report_accuracy_breakdown_group_2.csv",
         "OUTPUT_ACCURACY_BREAKDOWN_GROUP_3": "report_accuracy_breakdown_group_3.csv",
+        "OUTPUT_ACCURACY_BREAKDOWN_GROUP_4": "report_accuracy_breakdown_group_4.csv",
         "OUTPUT_CONFUSION_MATRIX_GROUP_1": "report_confusion_matrix_group_1.png",
         "OUTPUT_CONFUSION_MATRIX_GROUP_2": "report_confusion_matrix_group_2.png",
         "OUTPUT_CONFUSION_MATRIX_GROUP_3": "report_confusion_matrix_group_3.png",
+        "OUTPUT_CONFUSION_MATRIX_GROUP_4": "report_confusion_matrix_group_4.png",
         "OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_1": "container_accuracy_breakdown_group_1.csv",
         "OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_2": "container_accuracy_breakdown_group_2.csv",
         "OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_3": "container_accuracy_breakdown_group_3.csv",
+        "OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_4": "container_accuracy_breakdown_group_4.csv",
     }
     if group_terminology is None:
         logger.error("group_terminology must be provided in the configuration.")
@@ -253,6 +279,7 @@ def _write_evaluation_outputs(
         "group_1": group1_accuracy_df,
         "group_2": group2_accuracy_df,
         "group_3": group3_accuracy_df,
+        "group_4": group4_accuracy_df,
     }
 
     for group_key, group_name in group_terminology.items():
@@ -271,6 +298,7 @@ def _write_evaluation_outputs(
             "group_1": container_group1_accuracy_df,
             "group_2": container_group2_accuracy_df,
             "group_3": container_group3_accuracy_df,
+            "group_4": container_group4_accuracy_df,
         }
 
         for group_key, group_name in group_terminology.items():
@@ -326,6 +354,8 @@ def _write_evaluation_outputs(
                 filename,
                 group_terminology,
                 dictionary_excel_path,
+                major_group,
+                code_to_groups,
             )
 
     # Generate container confusion matrix plots for each diagnosis group (if data is available)
@@ -346,6 +376,12 @@ def _write_evaluation_outputs(
                 plot_df["gt_group1"] = plot_df["gt_container_group1"]
                 plot_df["gt_group2"] = plot_df["gt_container_group2"]
                 plot_df["gt_group3"] = plot_df["gt_container_group3"]
+                plot_df["gt_group4"] = plot_df["gt_container_group4"]
+                plot_df["pred_group4"] = plot_df["pred_container_code"].map(
+                    lambda code: code_to_groups.get(code, {}).get("Diagnostic group 4")
+                    if code_to_groups and pd.notna(code)
+                    else None
+                )
 
                 plotting_generators.generate_diagnosis_group_confusion_matrix(
                     plot_df,
@@ -353,6 +389,8 @@ def _write_evaluation_outputs(
                     filename,
                     group_terminology,
                     dictionary_excel_path,
+                    major_group,
+                    code_to_groups,
                 )
 
 
@@ -372,6 +410,7 @@ def main(run_name: str | None = None) -> None:
     group_terminology = config.get("group_terminology")
     dictionary_excel_path = config.get("diagnosis_dictionary")
     ontology_matching = config.get("ontology_matching", False)
+    major_group = config.get("major_group", "group_3")
 
     # If run_name is provided, construct paths; otherwise load from config
     if run_name:
@@ -380,6 +419,10 @@ def main(run_name: str | None = None) -> None:
     else:
         logger.error("run_name must be provided to construct input/output paths.")
         raise ValueError("run_name must be provided to construct input/output paths.")
+
+    # Load ontology to get code_to_groups mapping
+    logger.info("Loading diagnosis ontology from %s", dictionary_excel_path)
+    _, code_to_groups, _ = ontology.load_ontology(dictionary_excel_path)
 
     run_evaluation(
         gt_excel=Path(config["validation_file"]),
@@ -391,6 +434,8 @@ def main(run_name: str | None = None) -> None:
         exclude_failed=params.get("EXCLUDE_FAILED", True),
         ontology_matching=ontology_matching,
         dictionary_excel_path=dictionary_excel_path,
+        major_group=major_group,
+        code_to_groups=code_to_groups,
     )
 
 
