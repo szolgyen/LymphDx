@@ -377,6 +377,11 @@ def _write_evaluation_outputs(
                 plot_df["gt_group2"] = plot_df["gt_container_group2"]
                 plot_df["gt_group3"] = plot_df["gt_container_group3"]
                 plot_df["gt_group4"] = plot_df["gt_container_group4"]
+                plot_df["pred_group4"] = plot_df["pred_container_code"].map(
+                    lambda code: code_to_groups.get(code, {}).get("Diagnostic group 4")
+                    if code_to_groups and pd.notna(code)
+                    else None
+                )
 
                 plotting_generators.generate_diagnosis_group_confusion_matrix(
                     plot_df,

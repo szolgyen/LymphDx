@@ -146,6 +146,17 @@ def _build_report_row(
         for k in range(1, max(top_k_values) + 1)
     }
 
+    top_1_container = extractors.extract_top_1_container_diagnosis(record)
+    pred_container_code = (
+        top_1_container.get("valid_diagnosis_code")
+        if top_1_container is not None
+        else None
+    )
+    if pred_container_code is not None and not pd.isna(pred_container_code):
+        pred_container_code = int(pred_container_code)
+    else:
+        pred_container_code = None
+
     # Extract top-k container diagnosis codes for accuracy checks
     topk_container_codes = (
         {
@@ -201,6 +212,7 @@ def _build_report_row(
         "case_id": case_id,
         "gt_code": gt_code,
         "pred_code": top_1.get("valid_primary_diagnosis_code"),
+        "pred_container_code": pred_container_code,
         "pred_score": top_1.get("valid_primary_diagnosis_score"),
         # Ground-truth group classifications
         "gt_group1": gt_group1,
