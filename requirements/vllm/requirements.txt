@@ -1,3 +1,8 @@
 # vLLM backend dependencies for Hematopathology LLM pipeline
 -r ../base.txt
-# Add vLLM-specific packages here.
+vllm>=0.11
+pandas>=2.0
+sentence-transformers>=2.2
+openpyxl>=3.1
+openai>=1.40
+ninja>=1.11

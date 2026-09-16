@@ -1,5 +1,10 @@
 import argparse
 import logging
+import os
+
+# Must be set before any CUDA context is created (i.e. before torch is imported).
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -31,6 +36,8 @@ CONFIG_DEFAULTS: dict[str, Any] = {
     "diagnosis_dictionary": "inputs/LN_Dx_dictionary_codes_20260824.xlsx",
     "output_dir": "outputs/predictions",
     "log_level": "INFO",
+    # Only used by the vllm backend, which talks to a running server
+    "server_base_url": "http://localhost:8000/v1",
 }
 
 CHOICES: dict[str, set[str]] = {
@@ -115,6 +122,7 @@ def main() -> int:
             decoder=config["decoder"],
             allowed_diagnoses=allowed_diagnoses,
             schema_model=schema_model,
+            server_base_url=config["server_base_url"],
         )
         pipeline = ExtractionPipeline(
             adapter=adapter,
