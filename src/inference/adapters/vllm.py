@@ -97,6 +97,9 @@ class VLLMAdapter(BaseModelAdapter):
             "- Start with '{' and end with '}'.\n"
         )
 
+        # Store the decorated prompt for logging
+        self._last_decorated_prompt = guarded_prompt
+
         response = client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": guarded_prompt}],

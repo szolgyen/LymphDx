@@ -107,9 +107,12 @@ class HFAdapter(BaseModelAdapter):
                 temperature=self.temperature,
             )
             if decoder_output is not None:
+                # Capture decorated prompt from decoder
+                self._last_decorated_prompt = self._decoder.get_last_decorated_prompt()
                 return decoder_output
 
             prompt_for_model = self._decoder.prepare_prompt(prompt, tokenizer)
+            self._last_decorated_prompt = prompt_for_model
             encoded = tokenizer(prompt_for_model, return_tensors="pt")
 
             # With non-sharded models, move inputs to model device.

@@ -77,4 +77,3 @@ PATHOLOGY REPORT:
 {input_text}
 
 
-JSON OUTPUT:
