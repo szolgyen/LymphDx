@@ -36,6 +36,8 @@ CONFIG_DEFAULTS: dict[str, Any] = {
     "diagnosis_dictionary": "inputs/LN_Dx_dictionary_codes_20260824.xlsx",
     "output_dir": "outputs/predictions",
     "log_level": "INFO",
+    "concurrency": 8,
+    "max_new_tokens": 4096,
     # Only used by the vllm backend, which talks to a running server
     "server_base_url": "http://localhost:8000/v1",
 }
@@ -123,12 +125,14 @@ def main() -> int:
             allowed_diagnoses=allowed_diagnoses,
             schema_model=schema_model,
             server_base_url=config["server_base_url"],
+            max_new_tokens=config["max_new_tokens"],
         )
         pipeline = ExtractionPipeline(
             adapter=adapter,
             prompt_template_path=prompt_template_path,
             allowed_diagnoses=allowed_diagnoses,
             decoder_name=config["decoder"],
+            concurrency=config["concurrency"],
         )
         prepare_output_store(str(timestamped_output_dir), timestamp=timestamp)
 

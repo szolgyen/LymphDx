@@ -42,7 +42,7 @@ class VLLMAdapter(BaseModelAdapter):
         base_url: str = DEFAULT_BASE_URL,
         api_key: str = "EMPTY",
         temperature: float = 0.0,
-        max_new_tokens: int = 2048,
+        max_new_tokens: int = 4096,
         timeout: float = 300.0,
     ):
         super().__init__(
@@ -89,16 +89,31 @@ class VLLMAdapter(BaseModelAdapter):
     def generate(self, prompt: str) -> str:
         client = self._ensure_client()
 
+        # Add explicit JSON formatting instructions to match HF adapter behavior
+        guarded_prompt = prompt + (
+            "\n\n\nCRITICAL OUTPUT FORMAT:\n"
+            "- Return EXACTLY one JSON object.\n"
+            "- Do not include markdown, code fences, commentary, or trailing text.\n"
+            "- Start with '{' and end with '}'.\n"
+        )
+
         response = client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": guarded_prompt}],
             temperature=self.temperature,
             max_tokens=self.max_new_tokens,
             extra_body=self._build_extra_body(),
         )
 
-        if response.choices[0].finish_reason == "length":
-            logger.warning("vLLM output hit the token limit and may be truncated")
+        finish_reason = response.choices[0].finish_reason
+        if finish_reason == "length":
+            logger.warning(
+                "vLLM output truncated (token limit reached). "
+                "Consider increasing max_new_tokens from %d",
+                self.max_new_tokens,
+            )
+        elif finish_reason != "stop":
+            logger.warning("vLLM generation ended with finish_reason: %s", finish_reason)
 
         return response.choices[0].message.content or ""
 
@@ -122,6 +137,11 @@ class VLLMAdapter(BaseModelAdapter):
         if THINK_CLOSE in candidate:
             candidate = candidate.rsplit(THINK_CLOSE, 1)[1].strip()
 
+        # Strip any leading non-JSON characters (quotes, spaces, etc.)
+        while candidate and candidate[0] not in "{`":
+            candidate = candidate[1:].strip()
+
+        # Handle markdown code fences (with or without language specifier)
         if candidate.startswith("```"):
             lines = candidate.splitlines()
 
@@ -133,12 +153,33 @@ class VLLMAdapter(BaseModelAdapter):
 
             candidate = "\n".join(lines).strip()
 
+        # Strip trailing quotes or whitespace
+        while candidate and candidate[-1] in "\"' \t\n":
+            candidate = candidate[:-1]
+        while candidate and candidate[0] in "\"'":
+            candidate = candidate[1:]
+
+        # Remove trailing commas before closing braces/brackets (common JSON generation error)
+        import re
+        candidate = re.sub(r',(\s*[}\]])', r'\1', candidate)
+
         try:
             json.loads(candidate)
             return candidate
         except json.JSONDecodeError:
-            pass
+            # Try to auto-close incomplete JSON objects (from token limit truncation)
+            if candidate.startswith("{"):
+                open_braces = candidate.count("{") - candidate.count("}")
+                open_brackets = candidate.count("[") - candidate.count("]")
+                if open_braces > 0 or open_brackets > 0:
+                    repaired = candidate + "]" * open_brackets + "}" * open_braces
+                    try:
+                        json.loads(repaired)
+                        return repaired
+                    except json.JSONDecodeError:
+                        pass
 
+        # Try extracting JSON from within other text
         start = candidate.find("{")
         end = candidate.rfind("}")
 

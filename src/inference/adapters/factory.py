@@ -34,6 +34,7 @@ def create_adapter(
     allowed_diagnoses: set[str] | None = None,
     schema_model: type[BaseModel] | None = None,
     server_base_url: str | None = None,
+    max_new_tokens: int = 4096,
 ) -> BaseModelAdapter:
     backend_name = backend.strip().lower()
     if backend_name not in SUPPORTED_BACKENDS:
@@ -43,10 +44,11 @@ def create_adapter(
 
     resolved_decoder = _resolve_decoder(backend_name, decoder)
     logger.info(
-        "Creating adapter backend=%s model=%s decoder=%s",
+        "Creating adapter backend=%s model=%s decoder=%s max_new_tokens=%s",
         backend_name,
         model,
         resolved_decoder,
+        max_new_tokens,
     )
 
     if backend_name == "hf":
@@ -55,6 +57,7 @@ def create_adapter(
             decoder=resolved_decoder,
             allowed_diagnoses=allowed_diagnoses,
             schema_model=schema_model,
+            max_new_tokens=max_new_tokens,
         )
 
     if backend_name == "vllm":
@@ -64,6 +67,7 @@ def create_adapter(
             decoder=resolved_decoder,
             allowed_diagnoses=allowed_diagnoses,
             schema_model=schema_model,
+            max_new_tokens=max_new_tokens,
             **vllm_kwargs,
         )
 

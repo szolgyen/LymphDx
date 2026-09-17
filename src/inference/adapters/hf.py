@@ -28,7 +28,7 @@ class HFAdapter(BaseModelAdapter):
         decoder: str,
         allowed_diagnoses: set[str] | None = None,
         schema_model: type[BaseModel] | None = None,
-        max_new_tokens: int = 512,
+        max_new_tokens: int = 2048,
         temperature: float = 0.0,
         device_map: str = "auto",
     ):

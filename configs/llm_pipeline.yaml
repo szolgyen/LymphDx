@@ -2,11 +2,17 @@
 # Use this file with:
 #   .venvs/heme-llm-hf/bin/python scripts/run_pipeline.py
 
-# Inference backend: hf | *vllm | *sglang | *ollama
-backend: hf
+# Inference backend: hf | vllm | *sglang | *ollama
+backend: vllm
+
+# Allow multithreading for vllm backend:
+concurrency: 8
 
 # Model identifier: google/medgemma-4b-it | google/medgemma-1.5-4b-it | google/medgemma-27b-it | google/medgemma-4b-pt |aaditya/Llama3-OpenBioLLM-8B
 model: google/medgemma-1.5-4b-it
+
+# Token limit:
+max_new_tokens: 4096
 
 # Decoder: none | guidance | outlines
 decoder: none
