@@ -19,6 +19,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from inference.adapters.base import BaseModelAdapter
+from inference.decoders.factory import create_decoder
 from schemas.validation import SchemaValidationError, validate_output
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ class VLLMAdapter(BaseModelAdapter):
         self.max_new_tokens = max_new_tokens
         self.timeout = timeout
         self._client = None
+        self._decoder = None
 
     def _ensure_client(self):
         if self._client is None:
@@ -72,8 +74,32 @@ class VLLMAdapter(BaseModelAdapter):
 
         return self._client
 
+    def set_decoder(self, decoder: Any) -> None:
+        """Set the decoder instance for access to constrained schemas.
+
+        Called by the extraction pipeline when using guidance decoder
+        to enable schema constraint enforcement at generation time.
+        """
+        self._decoder = decoder
+
+    def _ensure_decoder(self) -> None:
+        """Create decoder instance if needed for constraint enforcement."""
+        if self._decoder is not None or self.decoder_name == "none":
+            return
+
+        # Create decoder for xgrammar to access constrained schema
+        if self.decoder_name == "xgrammar":
+            self._decoder = create_decoder(
+                backend="vllm",
+                decoder_name=self.decoder_name,
+                allowed_diagnoses=self.allowed_diagnoses,
+                logger=logger,
+                schema_model=self.schema_model,
+            )
+            self._decoder.validate_ready()
+
     def _build_extra_body(self) -> dict[str, Any]:
-        if self.decoder_name == "none":
+        if self.decoder_name in ("none", "xgrammar"):
             return {}
 
         return {
@@ -89,13 +115,17 @@ class VLLMAdapter(BaseModelAdapter):
     def generate(self, prompt: str) -> str:
         client = self._ensure_client()
 
-        # Add explicit JSON formatting instructions to match HF adapter behavior
-        guarded_prompt = prompt + (
-            "\n\n\nCRITICAL OUTPUT FORMAT:\n"
-            "- Return EXACTLY one JSON object.\n"
-            "- Do not include markdown, code fences, commentary, or trailing text.\n"
-            "- Start with '{' and end with '}'.\n"
-        )
+        # Prepare prompt using decoder if available (adds diagnosis constraints, etc.)
+        if self.decoder_name == "xgrammar" and self._decoder is not None:
+            guarded_prompt = self._decoder.prepare_prompt(prompt, tokenizer=None)
+        else:
+            # For decoder: none, just add format instructions
+            guarded_prompt = prompt + (
+                "\n\n\nCRITICAL OUTPUT FORMAT:\n"
+                "- Return EXACTLY one JSON object.\n"
+                "- Do not include markdown, code fences, commentary, or trailing text.\n"
+                "- Start with '{' and end with '}'.\n"
+            )
 
         # Store the decorated prompt for logging
         self._last_decorated_prompt = guarded_prompt

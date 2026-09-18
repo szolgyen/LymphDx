@@ -8,6 +8,7 @@ from inference.decoders.hf_guidance import HFGuidanceDecoder
 from inference.decoders.none import NoneDecoder
 from inference.decoders.outlines import OutlinesDecoder
 from inference.decoders.sglang import SGLangDecoder
+from inference.decoders.vllm_xgrammar import VLLMxgrammarDecoder
 
 
 def create_decoder(
@@ -35,6 +36,18 @@ def create_decoder(
                 f"Unsupported decoder '{decoder_name}' for backend='{backend_name}'"
             )
         return HFGuidanceDecoder(
+            allowed_diagnoses=allowed_diagnoses,
+            prompt_formatter=prompt_formatter,
+            logger=logger,
+            schema_model=schema_model,
+        )
+
+    if resolved_decoder == "xgrammar":
+        if backend_name != "vllm":
+            raise ValueError(
+                f"Unsupported decoder '{decoder_name}' for backend='{backend_name}'"
+            )
+        return VLLMxgrammarDecoder(
             allowed_diagnoses=allowed_diagnoses,
             prompt_formatter=prompt_formatter,
             logger=logger,

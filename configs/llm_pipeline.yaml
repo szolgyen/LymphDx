@@ -14,8 +14,8 @@ model: google/medgemma-1.5-4b-it
 # Token limit:
 max_new_tokens: 4096
 
-# Decoder: none | guidance | outlines
-decoder: none
+# Decoder: none | guidance | outlines | xgrammar
+decoder: xgrammar
 
 # Schema version. Must match a class named schema_<version> in src/pathology_llm/schemas/pathology.py
 schema: v5

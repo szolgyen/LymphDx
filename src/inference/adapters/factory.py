@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 SUPPORTED_BACKENDS = {"hf", "vllm", "sglang", "ollama"}
-SUPPORTED_DECODERS = {"none", "guidance", "outlines"}
+SUPPORTED_DECODERS = {"none", "guidance", "outlines", "xgrammar"}
 
 
 def _resolve_decoder(backend: str, decoder: str) -> str:
