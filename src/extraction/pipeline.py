@@ -42,7 +42,7 @@ class ExtractionPipeline:
     def extract_reports(
         self,
         reports: list[ParsedReport],
-        on_success: Callable[[int, BaseModel, str], None] | None = None,
+        on_success: Callable[[int, BaseModel, str, str], None] | None = None,
         on_error: Callable[[int, str | None, str], None] | None = None,
     ) -> list[BaseModel]:
         backend_name = getattr(self.adapter, "backend_name", "unknown")
@@ -78,7 +78,7 @@ class ExtractionPipeline:
                     extraction = self.adapter.parse(raw)
                     extraction.case_id = report.case_id
                     if on_success is not None:
-                        on_success(idx, extraction, prompt_for_logging)
+                        on_success(idx, extraction, prompt_for_logging, raw)
                     return (idx, extraction)
                 except SchemaValidationError as parse_error:
                     # Schema parse error: capture raw output for debugging

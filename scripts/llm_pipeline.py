@@ -21,6 +21,7 @@ from utils.utils import (
     write_output_record,
     write_prompt_record,
     write_broken_extraction_record,
+    write_raw_output_record,
 )
 
 
@@ -44,7 +45,7 @@ CONFIG_DEFAULTS: dict[str, Any] = {
 
 CHOICES: dict[str, set[str]] = {
     "backend": {"hf", "vllm", "sglang", "ollama"},
-    "decoder": {"none", "guidance", "outlines"},
+    "decoder": {"none", "guidance", "outlines", "xgrammar"},
     "log_level": {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},
 }
 
@@ -136,7 +137,7 @@ def main() -> int:
         )
         prepare_output_store(str(timestamped_output_dir), timestamp=timestamp)
 
-        def _persist_output(report_index: int, extraction_output, prompt: str) -> None:
+        def _persist_output(report_index: int, extraction_output, prompt: str, raw_output: str) -> None:
             write_output_record(
                 output_dir=str(timestamped_output_dir),
                 report_index=report_index,
@@ -147,6 +148,11 @@ def main() -> int:
                 output_dir=str(timestamped_output_dir),
                 report_index=report_index,
                 prompt=prompt,
+            )
+            write_raw_output_record(
+                output_dir=str(timestamped_output_dir),
+                report_index=report_index,
+                raw_output=raw_output,
             )
 
         def _persist_broken_output(

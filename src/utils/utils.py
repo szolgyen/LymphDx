@@ -139,3 +139,20 @@ def write_broken_extraction_record(
     )
     with (out_path / broken_predictions_filename).open("a", encoding="utf-8") as f:
         f.write(json.dumps(broken_record) + "\n")
+
+
+def write_raw_output_record(
+    output_dir: str,
+    report_index: int,
+    raw_output: str,
+) -> None:
+    """Write raw model output to a markdown file for inspection and debugging."""
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+    reports = out_path / "reports"
+    reports.mkdir(parents=True, exist_ok=True)
+
+    (reports / f"case_{report_index:04d}.md").write_text(
+        raw_output,
+        encoding="utf-8",
+    )
