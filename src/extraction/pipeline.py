@@ -78,7 +78,7 @@ class ExtractionPipeline:
                     extraction = self.adapter.parse(raw)
                     extraction.case_id = report.case_id
                     if on_success is not None:
-                        on_success(idx, extraction, prompt_for_logging, raw)
+                        on_success(extraction, prompt_for_logging, raw)
                     return (idx, extraction)
                 except SchemaValidationError as parse_error:
                     # Schema parse error: capture raw output for debugging

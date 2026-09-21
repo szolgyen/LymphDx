@@ -137,21 +137,23 @@ def main() -> int:
         )
         prepare_output_store(str(timestamped_output_dir), timestamp=timestamp)
 
-        def _persist_output(report_index: int, extraction_output, prompt: str, raw_output: str) -> None:
+        def _persist_output(extraction_output, prompt: str, raw_output: str) -> None:
+            output_dict = extraction_output.model_dump()
+            case_id = output_dict["case_id"]
             write_output_record(
                 output_dir=str(timestamped_output_dir),
-                report_index=report_index,
-                output=extraction_output.model_dump(),
+                report_index=case_id,
+                output=output_dict,
                 timestamp=timestamp,
             )
             write_prompt_record(
                 output_dir=str(timestamped_output_dir),
-                report_index=report_index,
+                report_index=case_id,
                 prompt=prompt,
             )
             write_raw_output_record(
                 output_dir=str(timestamped_output_dir),
-                report_index=report_index,
+                report_index=case_id,
                 raw_output=raw_output,
             )
 
