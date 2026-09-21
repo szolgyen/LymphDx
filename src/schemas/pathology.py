@@ -147,6 +147,23 @@ class PathologyExtractionV7(BaseModel):
     has_prior_malignancy: Optional[bool] = None
     has_concurrent_malignancy: Optional[bool] = None
 
+class PathologyExtractionV8(BaseModel):
+    schema_version: Literal["v8"] = Field(default="v8", frozen=True)
+
+    case_id: Optional[int] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-decoder-exclude": True},
+    )
+
+    primary_diagnosis: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"x-reportllm-diagnosis-constrained": False},
+    )
+    is_definitive: Optional[bool] = None
+    containers: Optional[List[ContainerInfo]] = None
+    has_differential_diagnosis: Optional[bool] = None
+    has_prior_malignancy: Optional[bool] = None
+    has_concurrent_malignancy: Optional[bool] = None
 
 schema_v2 = PathologyExtractionV2
 schema_v3 = PathologyExtractionV3
@@ -154,3 +171,4 @@ schema_v4 = PathologyExtractionV4
 schema_v5 = PathologyExtractionV5
 schema_v6 = PathologyExtractionV6
 schema_v7 = PathologyExtractionV7
+schema_v8 = PathologyExtractionV8
