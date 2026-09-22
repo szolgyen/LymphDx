@@ -295,22 +295,54 @@ def generate_diagnosis_group_confusion_matrix(
     # Get display name for this group
     group_display_name = group_terminology.get(group_key, group_key)
 
-    # Normalize group key for column access
+    # Normalize group key for column access (e.g., "group_2" -> "group2")
     group_normalized = metrics.normalize_group_key(group_key)
 
-    # Filter to rows with both GT and prediction present
+    # Map group_normalized to Excel column name (e.g., "group2" -> "WHO-like Categories")
+    group_column_mapping = {
+        "group1": "WHO-like Subcategories",
+        "group2": "WHO-like Categories",
+        "group3": "WHO-like Major Sections/Lineages",
+        "group4": "Diagnostic group 4",
+    }
+    excel_column_name = group_column_mapping.get(group_normalized)
+
+    if not excel_column_name:
+        raise ValueError(f"Unknown group normalized key: {group_normalized}")
+
+    # Load the Excel dictionary to map codes to groups
+    if not dictionary_excel_path:
+        raise ValueError("dictionary_excel_path is required for confusion matrix generation")
+
+    try:
+        code_dict_df = pd.read_excel(dictionary_excel_path)
+    except Exception as e:
+        logger.error(f"Failed to load dictionary Excel file: {e}")
+        raise
+
+    # Build mapping from code to group category
+    code_to_group = {}
+    for _, row in code_dict_df.iterrows():
+        code = row.get("Code")
+        group_value = row.get(excel_column_name)
+        if pd.notna(code) and pd.notna(group_value):
+            code_to_group[int(code) if isinstance(code, float) else code] = group_value
+
+    # Get GT codes and prediction codes, filtering to valid rows
     valid_mask = (
-        report_df[f"gt_{group_normalized}"].notna()
-        & report_df[f"pred_{group_normalized}"].notna()
+        report_df["gt_code"].notna()
+        & report_df["pred_code"].notna()
     )
 
-    y_true = report_df.loc[valid_mask, f"gt_{group_normalized}"].tolist()
-    y_pred = report_df.loc[valid_mask, f"pred_{group_normalized}"].tolist()
+    gt_codes = report_df.loc[valid_mask, "gt_code"].tolist()
+    pred_codes = report_df.loc[valid_mask, "pred_code"].tolist()
+
+    # Map codes to their group categories using the dictionary
+    y_true = [code_to_group.get(code, "N/A") for code in gt_codes]
+    y_pred = [code_to_group.get(code, "N/A") for code in pred_codes]
 
     # Collect all unique categories from both GT and predictions
     all_labels = sorted(set(y_true) | set(y_pred))
-    # Collect only labels from ground truth (exclude predicted-only labels)
-    # all_labels = sorted(set(y_true))
 
     # Build mapping from current group to major_group using actual code classifications
     source_to_major_mapping = {}
@@ -330,7 +362,7 @@ def generate_diagnosis_group_confusion_matrix(
 
         # Sort labels by their major_group category
         def get_sort_key(label: str) -> tuple:
-            major = source_to_major_mapping.get(label, "Miscellaneous")
+            major = source_to_major_mapping.get(label, "N/A")
             try:
                 major_priority = major_order.index(major)
             except ValueError:
@@ -339,22 +371,55 @@ def generate_diagnosis_group_confusion_matrix(
 
         all_labels = sorted(all_labels, key=get_sort_key)
 
-    # Compute normalized confusion matrix
-    cm = confusion_matrix(y_true, y_pred, labels=all_labels, normalize="true")
-    cm_df = pd.DataFrame(cm, index=all_labels, columns=all_labels)
-    annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
-    # annot = cm_df.map(lambda x: "" if x == 0 else f"{x:d}")
+    if "N/A" in all_labels:
+        all_labels.remove("N/A")
+        all_labels.append("N/A")
+
+    # # Compute normalized confusion matrix
+    # cm = confusion_matrix(y_true, y_pred, labels=all_labels, normalize="true")
+    # cm_df = pd.DataFrame(cm, index=all_labels, columns=all_labels)
+    # annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
+    # # annot = cm_df.map(lambda x: "" if x == 0 else f"{x:d}")
+
+    # # TODO
+    # Normalized matrix — used for colors
+    cm_normalized = confusion_matrix(
+        y_true,
+        y_pred,
+        labels=all_labels,
+        normalize="true",
+    )
+    cm_normalized_df = pd.DataFrame(
+        cm_normalized,
+        index=all_labels,
+        columns=all_labels,
+    )
+
+    # Raw matrix — used for annotations
+    cm_counts = confusion_matrix(
+        y_true,
+        y_pred,
+        labels=all_labels,
+    )
+    cm_counts_df = pd.DataFrame(
+        cm_counts,
+        index=all_labels,
+        columns=all_labels,
+    )
+
+    # Display actual counts in the cells
+    annot = cm_counts_df.map(lambda x: f"{x:d}")
+    # TODO
 
     # from matplotlib.colors import LogNorm
 
     # Create figure and heatmap
     fig, ax = plt.subplots(figsize=(15, 12))
     sns.heatmap(
-        cm_df,
-        annot=annot,
+        cm_normalized_df,       # <-- controls the colors
+        annot=annot,            # <-- displays the raw counts
         fmt="",
         cmap="Blues",
-        # norm=LogNorm(vmin=1, vmax=cm_df.to_numpy().max()),
         ax=ax,
         annot_kws={"fontsize": 12},
         cbar_kws={
@@ -412,13 +477,13 @@ def generate_diagnosis_group_confusion_matrix(
     # Wrap long labels for readability
     ax.set_yticklabels(
         [textwrap.fill(label.get_text(), width=30) for label in ax.get_yticklabels()],
-        fontsize=12,
+        fontsize=10,
         rotation=0,
     )
     ax.set_xticklabels(
         [textwrap.fill(label.get_text(), width=30) for label in ax.get_xticklabels()],
-        fontsize=12,
-        rotation=45,
+        fontsize=10,
+        rotation=90,
         ha="right",
     )
 
