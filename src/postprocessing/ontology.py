@@ -1,3 +1,6 @@
+#TODO: The module needs a major revision for performance and maintainability.
+# It is only commited because it is functional and helps to track the development direction.
+
 import json
 import logging
 from collections import defaultdict
@@ -6,11 +9,15 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 import yaml
+import re
 from sentence_transformers import SentenceTransformer, CrossEncoder
 from sentence_transformers.util import cos_sim
 
 logger = logging.getLogger(__name__)
+
+ANSWER_RE = re.compile(r"<answer>\s*(.*?)\s*</answer>", re.DOTALL | re.IGNORECASE)
 
 
 class OntologyMatcher:
@@ -23,31 +30,110 @@ class OntologyMatcher:
         acceptance_threshold,
         use_prefilter,
         code_to_groups,
+        classifier_model=None,
+        use_classifier=False,
     ):
         self.ontology = ontology
         self.retrieval_k = retrieval_k
         self.acceptance_threshold = acceptance_threshold
         self.use_prefilter = use_prefilter
         self.code_to_groups = code_to_groups or {}
+        self.use_classifier = use_classifier
 
-        logger.info("Loading reranker model: %s", reranker_model)
-        self.reranker = CrossEncoder(reranker_model)
+        if self.use_classifier:
+            logger.info("Loading classifier model: %s", classifier_model)
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            self.classifier_tokenizer = AutoTokenizer.from_pretrained(classifier_model)
+            self.classifier = AutoModelForCausalLM.from_pretrained(
+                classifier_model,
+                torch_dtype=torch.bfloat16,
+                device_map="auto",
+            )
+            self.classifier.eval()
+        else:
+            logger.info("Loading reranker model: %s", reranker_model)
+            self.reranker = CrossEncoder(reranker_model)
 
         if self.use_prefilter:
             logger.info("Loading embedding model: %s", embedding_model)
             self.embedder = SentenceTransformer(embedding_model)
 
-            ontology_texts = [item["description"] for item in ontology]
+            self.ontology_texts = [item["description"] for item in ontology]
 
             logger.info(
-                "Computing ontology embeddings for %d concepts", len(ontology_texts)
+                "Computing ontology embeddings for %d concepts", len(self.ontology_texts)
             )
             self.ontology_embeddings = self.embedder.encode(
-                ontology_texts,
+                self.ontology_texts,
                 normalize_embeddings=True,
                 convert_to_tensor=True,
                 show_progress_bar=True,
             )
+
+    @staticmethod
+    def split_output(text: str) -> tuple[str, str | None]:
+        """Return (markdown_reasoning, answer). answer is None if no tag was found."""
+        matches = list(ANSWER_RE.finditer(text))
+        if not matches:
+            return text.strip(), None
+
+        last = matches[-1]                      # last match, in case the tag appears earlier
+        answer = last.group(1).strip()
+        markdown = (text[:last.start()] + text[last.end():]).strip()
+        return markdown, answer
+
+    def _classify_matches(self, candidate: str, ontology: list):
+        """Select best matching ontology using MedGemma classifier.
+
+        Returns: Best matching ontology code.
+        """
+        ontology_text = "\n".join(f"- {x}" for x in ontology)
+
+        prompt = (
+            f"Select the single ontology that is semantically the best match for the "
+            f"'{candidate}' concept from the following list:\n"
+            f"{ontology_text}\n\n"
+            f"Provide your reasoning, and put your final answer at the end in the format "
+            f"<answer>ontology name</answer>."
+        )
+
+        chat = self.classifier_tokenizer.apply_chat_template(
+            [{"role": "user", "content": prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        inputs = self.classifier_tokenizer(
+                chat,
+                return_tensors="pt",
+                truncation=False,
+                max_length=4096,
+            ).to(self.classifier.device)
+
+        if inputs["input_ids"].shape[1] > 4096:
+            logger.warning(
+                "Input exceeds the maximum token limit of 4096 tokens!"
+            )
+
+        with torch.no_grad():
+            output = self.classifier.generate(
+            **inputs,
+            max_new_tokens=4096,
+            do_sample=False,
+        )
+
+        input_len = inputs["input_ids"].shape[1]
+
+        response = self.classifier_tokenizer.decode(
+            output[0][input_len:],
+            skip_special_tokens=True,
+        )
+
+        response = response.strip()
+
+        markdown, answer =self.split_output(response)
+
+        return markdown, answer
 
     def match(self, text, top_n=5):
 
@@ -123,70 +209,103 @@ class OntologyMatcher:
 
             labels.append(label)
 
-        rerank_scores = self.reranker.predict(pairs)
+        if self.use_classifier:
+            ontology_terms = [self.ontology_texts[idx] for idx in top_indices]
+            # similarity_scores = [similarities[idx] for idx in top_indices]
+            reasoning, matching_term = self._classify_matches(text, ontology_terms)
+        else:
+            rerank_scores = self.reranker.predict(pairs)
+            classifier_probs = None
 
         adjusted_scores = []
 
         query_lower = text.lower()
 
-        for score, label in zip(rerank_scores, labels):
-            concept = candidate_concepts[label]["concept"]
+        if not self.use_classifier:
+            for score, label in zip(rerank_scores, labels):
+                concept = candidate_concepts[label]["concept"]
 
-            bonus = 0.0
-            penalty = 0.0
+                bonus = 0.0
+                penalty = 0.0
 
-            synonyms = [s.lower() for s in concept["all_synonyms"]]
+                synonyms = [s.lower() for s in concept["all_synonyms"]]
 
-            # exact phrase match bonus
-            for synonym in synonyms:
-                if synonym in query_lower:
-                    bonus += 0.15
+                # exact phrase match bonus
+                for synonym in synonyms:
+                    if synonym in query_lower:
+                        bonus += 0.15
 
-            # penalize candidate being more specific than query
-            # e.g. "primary cutaneous marginal zone lymphoma"
-            # vs "marginal zone lymphoma"
-            best_synonym = max(
-                synonyms,
-                key=len,
-            )
+                # penalize candidate being more specific than query
+                # e.g. "primary cutaneous marginal zone lymphoma"
+                # vs "marginal zone lymphoma"
+                best_synonym = max(
+                    synonyms,
+                    key=len,
+                )
 
-            extra_words = set(best_synonym.split()) - set(query_lower.split())
+                extra_words = set(best_synonym.split()) - set(query_lower.split())
 
-            if len(extra_words) >= 2:
-                penalty -= 0.10
+                if len(extra_words) >= 2:
+                    penalty -= 0.10
 
-            adjusted_scores.append(float(score) + bonus + penalty)
+                adjusted_scores.append(float(score) + bonus + penalty)
 
-        # Get top N results sorted by score (descending)
-        top_indices = np.argsort(adjusted_scores)[::-1][:top_n]
+            # Get top N results sorted by score (descending)
+            top_indices = np.argsort(adjusted_scores)[::-1][:top_n]
 
-        results = {}
 
-        for rank, idx in enumerate(top_indices, start=1):
-            score = float(adjusted_scores[idx])
+            results = {}
 
-            # Skip if below threshold
-            if score < self.acceptance_threshold:
-                continue
+            for rank, idx in enumerate(top_indices, start=1):
+                score = float(adjusted_scores[idx])
 
-            code = labels[idx]
-            concept = candidate_concepts[code]["concept"]
+                # Skip if below threshold
+                if score < self.acceptance_threshold:
+                    continue
 
-            result = {
-                "code": code,
-                "name": concept["description"],
-                "score": score,
-            }
+                code = labels[idx]
+                concept = candidate_concepts[code]["concept"]
 
-            # Add diagnostic groups if available
-            if code in self.code_to_groups:
-                groups = self.code_to_groups[code]
-                result["group_1"] = groups.get("WHO-like Subcategories")
-                result["group_2"] = groups.get("WHO-like Categories")
-                result["group_3"] = groups.get("WHO-like Major Sections/Lineages")
-                result["group_4"] = groups.get("Diagnostic group 4")
+                result = {
+                    "code": code,
+                    "name": concept["description"],
+                    "score": score,
+                }
 
-            results[f"top_{rank}"] = result
+                # Add diagnostic groups if available
+                if code in self.code_to_groups:
+                    groups = self.code_to_groups[code]
+                    result["group_1"] = groups.get("WHO-like Subcategories")
+                    result["group_2"] = groups.get("WHO-like Categories")
+                    result["group_3"] = groups.get("WHO-like Major Sections/Lineages")
+                    result["group_4"] = groups.get("Diagnostic group 4")
+
+                results[f"top_{rank}"] = result
+
+        else:
+            results = {}
+
+            if matching_term is not None:
+                # Find the corresponding code for the matching term
+                for concept in self.ontology:
+                    if matching_term in concept["all_synonyms"]:
+                        code = concept["label"]
+                        result = {
+                            "code": code,
+                            "name": matching_term,
+                            "score": None,  # Classifier does not provide a score
+                        }
+
+                        # Add diagnostic groups if available
+                        if code in self.code_to_groups:
+                            groups = self.code_to_groups[code]
+                            result["group_1"] = groups.get("WHO-like Subcategories")
+                            result["group_2"] = groups.get("WHO-like Categories")
+                            result["group_3"] = groups.get("WHO-like Major Sections/Lineages")
+                            result["group_4"] = groups.get("Diagnostic group 4")
+
+                        results["top_1"] = result
+                        break
 
         return results
 
@@ -440,6 +559,7 @@ def main(run_name: str, config: dict) -> None:
     matcher = None
     if ontology_matching:
         logger.info("Initializing ontology matcher")
+        use_classifier = config["matching"].get("use_classifier", False)
         matcher = OntologyMatcher(
             ontology=ontology,
             embedding_model=config["models"]["embedding_model"],
@@ -448,6 +568,8 @@ def main(run_name: str, config: dict) -> None:
             acceptance_threshold=config["matching"]["acceptance_threshold"],
             use_prefilter=config["matching"]["use_prefilter"],
             code_to_groups=code_to_groups,
+            classifier_model=config["models"].get("classifier_model") if use_classifier else None,
+            use_classifier=use_classifier,
         )
 
     process_json(
