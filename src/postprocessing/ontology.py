@@ -1,55 +1,110 @@
-#TODO: The module needs a major revision for performance and maintainability.
-# It is only commited because it is functional and helps to track the development direction.
-
 import json
 import logging
+import re
+import string
 from collections import defaultdict
+from itertools import islice
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F
 import yaml
-import re
-from sentence_transformers import SentenceTransformer, CrossEncoder
+from sentence_transformers import CrossEncoder, SentenceTransformer
 from sentence_transformers.util import cos_sim
 
 logger = logging.getLogger(__name__)
 
 ANSWER_RE = re.compile(r"<answer>\s*(.*?)\s*</answer>", re.DOTALL | re.IGNORECASE)
+LETTER_RE = re.compile(r"[\(\[]?([A-Z])(?![A-Za-z])")
+LETTERS = string.ascii_uppercase  # options are labelled A..Z (single tokens)
+
+
+def normalize_text(value) -> str:
+    """None / NaN -> '', otherwise str() + strip."""
+    if value is None or (isinstance(value, float) and value != value):
+        return ""
+    return str(value).strip()
+
+
+def _norm(s: str) -> str:
+    return " ".join(s.lower().split())
 
 
 class OntologyMatcher:
     def __init__(
         self,
-        ontology,
+        ontology_list,
         embedding_model,
         reranker_model,
         retrieval_k,
         acceptance_threshold,
         use_prefilter,
-        code_to_groups,
+        diagnosis_to_groups,
         classifier_model=None,
         use_classifier=False,
+        classifier_mode="logits",
+        classifier_batch_size=16,
+        classifier_max_options=10,
+        classifier_min_prob=0.0,
+        classifier_max_new_tokens=384,
+        encode_batch_size=64,
     ):
-        self.ontology = ontology
+        if use_classifier and not use_prefilter:
+            raise ValueError("use_classifier requires use_prefilter (needs a shortlist).")
+        if classifier_mode not in ("logits", "generate"):
+            raise ValueError("classifier_mode must be 'logits' or 'generate'.")
+        if not 1 <= classifier_max_options <= len(LETTERS):
+            raise ValueError(f"classifier_max_options must be in 1..{len(LETTERS)}.")
+
+        self.ontology_list = ontology_list
         self.retrieval_k = retrieval_k
         self.acceptance_threshold = acceptance_threshold
         self.use_prefilter = use_prefilter
-        self.code_to_groups = code_to_groups or {}
+        self.diagnosis_to_groups = diagnosis_to_groups or {}
         self.use_classifier = use_classifier
+        self.classifier_mode = classifier_mode
+        self.classifier_batch_size = classifier_batch_size
+        self.classifier_max_options = classifier_max_options
+        self.classifier_min_prob = classifier_min_prob
+        self.classifier_max_new_tokens = classifier_max_new_tokens
+        self.encode_batch_size = encode_batch_size
+        self._cache = {}
 
+        # ---- lookup structures (built once) ----
+        # normalized string -> concept index (exact-match shortcut)
+        self.text_to_idx = {}
+        for i, t in enumerate(self.ontology_list):
+            self.text_to_idx.setdefault(_norm(t), i)
+
+        # no-prefilter case: every concept is a candidate
+        self._all_candidates = list(range(len(self.ontology_list)))
+
+        # ---- models ----
         if self.use_classifier:
             logger.info("Loading classifier model: %s", classifier_model)
             from transformers import AutoModelForCausalLM, AutoTokenizer
+
             self.classifier_tokenizer = AutoTokenizer.from_pretrained(classifier_model)
+            tok = self.classifier_tokenizer
+            tok.padding_side = "left"  # required for batched decoder-only inference
+            if tok.pad_token is None:
+                tok.pad_token = tok.eos_token
+
             self.classifier = AutoModelForCausalLM.from_pretrained(
                 classifier_model,
                 torch_dtype=torch.bfloat16,
                 device_map="auto",
             )
             self.classifier.eval()
+
+            # Token ids of the option letters (used by the logits mode).
+            self.letter_ids = []
+            for letter in LETTERS[:classifier_max_options]:
+                ids = tok.encode(letter, add_special_tokens=False)
+                if len(ids) != 1:
+                    raise ValueError(f"Letter {letter!r} is not a single token: {ids}")
+                self.letter_ids.append(ids[0])
         else:
             logger.info("Loading reranker model: %s", reranker_model)
             self.reranker = CrossEncoder(reranker_model)
@@ -57,328 +112,307 @@ class OntologyMatcher:
         if self.use_prefilter:
             logger.info("Loading embedding model: %s", embedding_model)
             self.embedder = SentenceTransformer(embedding_model)
-
-            self.ontology_texts = [item["description"] for item in ontology]
-
             logger.info(
-                "Computing ontology embeddings for %d concepts", len(self.ontology_texts)
+                "Computing ontology embeddings for %d concepts", len(self.ontology_list)
             )
             self.ontology_embeddings = self.embedder.encode(
-                self.ontology_texts,
+                self.ontology_list,
                 normalize_embeddings=True,
                 convert_to_tensor=True,
+                batch_size=encode_batch_size,
                 show_progress_bar=True,
             )
 
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+    def match(self, text, top_n=5):
+        """Single-text convenience wrapper around match_many."""
+        key = normalize_text(text)
+        if not key:
+            return {}
+        return self.match_many([key], top_n=top_n)[key]
+
+    def match_many(self, texts, top_n=5):
+        """Match many texts at once. Returns {normalized_text: results_dict}.
+
+        Duplicates are collapsed and previously seen texts are served from cache,
+        so each distinct string is matched (and sent to the LLM) at most once.
+        """
+        keys = list(dict.fromkeys(k for k in map(normalize_text, texts) if k))
+        todo = [k for k in keys if (k, top_n) not in self._cache]
+        if todo:
+            for k, res in self._match_uncached(todo, top_n).items():
+                self._cache[(k, top_n)] = res
+        return {k: self._cache[(k, top_n)] for k in keys}
+
+    # ------------------------------------------------------------------
+    # Pipeline stages
+    # ------------------------------------------------------------------
+    def _match_uncached(self, texts, top_n):
+        cands = self._retrieve(texts)
+        if self.use_classifier:
+            ranked = self._rank_with_classifier(texts, cands)
+        else:
+            ranked = self._rank_with_reranker(texts, cands)
+        return {t: self._finalize(r, top_n) for t, r in zip(texts, ranked)}
+
+    def _retrieve(self, texts):
+        """Per text: ordered list of unique (code, best_entry_idx) candidates."""
+        if not self.use_prefilter:
+            return [self._all_candidates] * len(texts)
+
+        q = self.embedder.encode(
+            texts,
+            normalize_embeddings=True,
+            convert_to_tensor=True,
+            batch_size=self.encode_batch_size,
+            show_progress_bar=False,
+        )
+        sims = cos_sim(q, self.ontology_embeddings)
+        k = min(self.retrieval_k, len(self.ontology_list))
+        return torch.topk(sims, k=k, dim=1).indices.tolist()
+
+    # ---- reranker path -------------------------------------------------
+    @staticmethod
+    def _adjust(score, candidate, query_lower):
+        cand = candidate.lower()
+        bonus = 0.15 if cand in query_lower else 0.0
+        extra = set(cand.split()) - set(query_lower.split())
+        penalty = -0.10 if len(extra) >= 2 else 0.0
+        return float(score) + bonus + penalty
+
+    def _rank_with_reranker(self, texts, cands):
+        pairs, spans = [], []
+        for text, c in zip(texts, cands):
+            start = len(pairs)
+            pairs.extend((text, self.ontology_list[i]) for i in c)
+            spans.append((start, len(pairs)))
+
+        scores = (
+            self.reranker.predict(
+                pairs, batch_size=self.encode_batch_size, show_progress_bar=False
+            )
+            if pairs
+            else []
+        )
+
+        ranked = []
+        for text, c, (a, b) in zip(texts, cands, spans):
+            q = text.lower()
+            adj = [
+                self._adjust(s, self.ontology_list[i], q)
+                for s, i in zip(scores[a:b], c)
+            ]
+            order = np.argsort(adj)[::-1]
+            ranked.append([(c[j], adj[j]) for j in order])
+        return ranked
+
+    # ---- classifier path -----------------------------------------------
     @staticmethod
     def split_output(text: str) -> tuple[str, str | None]:
         """Return (markdown_reasoning, answer). answer is None if no tag was found."""
         matches = list(ANSWER_RE.finditer(text))
         if not matches:
             return text.strip(), None
-
-        last = matches[-1]                      # last match, in case the tag appears earlier
+        last = matches[-1]
         answer = last.group(1).strip()
-        markdown = (text[:last.start()] + text[last.end():]).strip()
+        markdown = (text[: last.start()] + text[last.end():]).strip()
         return markdown, answer
 
-    def _classify_matches(self, candidate: str, ontology: list):
-        """Select best matching ontology using MedGemma classifier.
-
-        Returns: Best matching ontology code.
-        """
-        ontology_text = "\n".join(f"- {x}" for x in ontology)
-
+    def _build_prompt(self, concept, shortlist, cot):
+        options = "\n".join(
+            f"{LETTERS[j]}. {self.ontology_list[i]}" for j, i in enumerate(shortlist)
+        )
         prompt = (
-            f"Select the single ontology that is semantically the best match for the "
-            f"'{candidate}' concept from the following list:\n"
-            f"{ontology_text}\n\n"
-            f"Provide your reasoning, and put your final answer at the end in the format "
-            f"<answer>ontology name</answer>."
+            "You are mapping a diagnostic concept to the best matching ontology entry.\n\n"
+            f"Concept: {concept}\n\n"
+            f"Options:\n{options}\n\n"
+            "Choose the option that is the closest semantic match to the concept. "
+            "Prefer the option at the same level of specificity as the concept "
+            "(not broader, not a more specific subtype). "
         )
-
-        chat = self.classifier_tokenizer.apply_chat_template(
-            [{"role": "user", "content": prompt}],
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-
-        inputs = self.classifier_tokenizer(
-                chat,
-                return_tensors="pt",
-                truncation=False,
-                max_length=4096,
-            ).to(self.classifier.device)
-
-        if inputs["input_ids"].shape[1] > 4096:
-            logger.warning(
-                "Input exceeds the maximum token limit of 4096 tokens!"
+        if cot:
+            prompt += (
+                "Give your reasoning, then on the last line "
+                "write your final answer as <answer>LETTER</answer>."
             )
+        else:
+            prompt += "Reply with the option letter only."
+        return prompt
 
-        with torch.no_grad():
-            output = self.classifier.generate(
-            **inputs,
-            max_new_tokens=4096,
-            do_sample=False,
-        )
-
-        input_len = inputs["input_ids"].shape[1]
-
-        response = self.classifier_tokenizer.decode(
-            output[0][input_len:],
-            skip_special_tokens=True,
-        )
-
-        response = response.strip()
-
-        markdown, answer =self.split_output(response)
-
-        return markdown, answer
-
-    def match(self, text, top_n=5):
-
-        if text is None:
-            return {}
-
-        text = str(text).strip()
-
-        if not text:
-            return {}
-
-        candidate_concepts = {}
-
-        if self.use_prefilter:
-            query_embedding = self.embedder.encode(
-                text,
-                normalize_embeddings=True,
-                convert_to_tensor=True,
+    def _encode(self, prompts):
+        tok = self.classifier_tokenizer
+        chats = [
+            tok.apply_chat_template(
+                [{"role": "user", "content": p}],
+                tokenize=False,
+                add_generation_prompt=True,
             )
+            for p in prompts
+        ]
+        enc = tok(chats, return_tensors="pt", padding=True, add_special_tokens=False)
+        if enc["input_ids"].shape[1] > 4096:
+            logger.warning("Prompt batch has %d tokens (>4096).", enc["input_ids"].shape[1])
+        return enc.to(self.classifier.device)
 
-            similarities = cos_sim(
-                query_embedding,
-                self.ontology_embeddings,
-            )[0]
+    @torch.inference_mode()
+    def _option_probs(self, prompts, n_options):
+        """One forward pass per batch; softmax over the option-letter logits."""
+        order = sorted(range(len(prompts)), key=lambda i: len(prompts[i]))
+        out = [None] * len(prompts)
+        for s in range(0, len(order), self.classifier_batch_size):
+            batch = order[s : s + self.classifier_batch_size]
+            enc = self._encode([prompts[i] for i in batch])
+            try:
+                # only compute logits for the last position (vocab is huge)
+                logits = self.classifier(**enc, logits_to_keep=1).logits[:, -1, :]
+            except TypeError:  # older transformers
+                logits = self.classifier(**enc).logits[:, -1, :]
+            for row, i in zip(logits, batch):
+                k = n_options[i]
+                opt = row[self.letter_ids[:k]].float()
+                out[i] = torch.softmax(opt, dim=-1).cpu().numpy()
+        return out
 
-            top_k = min(
-                self.retrieval_k,
-                len(self.ontology),
+    @torch.inference_mode()
+    def _generate(self, prompts):
+        """Batched greedy generation (sorted by length to minimise padding)."""
+        tok = self.classifier_tokenizer
+        order = sorted(range(len(prompts)), key=lambda i: len(prompts[i]))
+        out = [None] * len(prompts)
+        for s in range(0, len(order), self.classifier_batch_size):
+            batch = order[s : s + self.classifier_batch_size]
+            enc = self._encode([prompts[i] for i in batch])
+            gen = self.classifier.generate(
+                **enc,
+                max_new_tokens=self.classifier_max_new_tokens,
+                do_sample=False,
+                pad_token_id=tok.pad_token_id,
             )
+            texts = tok.batch_decode(
+                gen[:, enc["input_ids"].shape[1] :], skip_special_tokens=True
+            )
+            for i, t in zip(batch, texts):
+                out[i] = t.strip()
+        return out
 
-            top_indices = torch.topk(
-                similarities,
-                k=top_k,
-            ).indices.tolist()
+    @staticmethod
+    def _parse_letter(answer, n_options):
+        if not answer:
+            return None
+        m = LETTER_RE.match(answer.strip().upper())
+        if not m:
+            return None
+        j = LETTERS.find(m.group(1))
+        return j if 0 <= j < n_options else None
 
-            for idx in top_indices:
-                concept = self.ontology[idx]
+    def _rank_with_classifier(self, texts, cands):
+        ranked = [[] for _ in texts]
+        pending = []
 
-                label = concept["label"]
+        # Cheap shortcut: an unambiguous exact synonym match needs no LLM.
+        for t_i, text in enumerate(texts):
+            idx = self.text_to_idx.get(_norm(text))
+            if idx is not None:
+                ranked[t_i] = [(idx, 1.0)]
+            else:
+                pending.append(t_i)
 
-                similarity = float(similarities[idx])
+        logger.info("Classifier: %d/%d texts need the LLM", len(pending), len(texts))
+        if not pending:
+            return ranked
 
-                if (
-                    label not in candidate_concepts
-                    or similarity > candidate_concepts[label]["similarity"]
-                ):
-                    candidate_concepts[label] = {
-                        "concept": concept,
-                        "similarity": similarity,
-                    }
+        shortlists = [cands[i][: self.classifier_max_options] for i in pending]
+        cot = self.classifier_mode == "generate"
+        prompts = [
+            self._build_prompt(texts[i], sl, cot) for i, sl in zip(pending, shortlists)
+        ]
 
+        if not cot:
+            probs = self._option_probs(prompts, [len(sl) for sl in shortlists])
+            for i, sl, p in zip(pending, shortlists, probs):
+                order = np.argsort(p)[::-1]
+                ranked[i] = [(sl[j], float(p[j])) for j in order]
         else:
-            # no retrieval stage: send everything to cross encoder
-            for concept in self.ontology:
-                label = concept["label"]
+            for i, sl, out in zip(pending, shortlists, self._generate(prompts)):
+                reasoning, answer = self.split_output(out)
+                logger.debug("%s -> %s\n%s", texts[i], answer, reasoning)
+                j = self._parse_letter(answer, len(sl))
+                if j is not None:
+                    ranked[i] = [(sl[j], None)]   # no calibrated score
+        return ranked
 
-                if label not in candidate_concepts:
-                    candidate_concepts[label] = {
-                        "concept": concept,
-                        "similarity": None,
-                    }
+    # ---- output --------------------------------------------------------
+    def _make_result(self, idx, score):
+        name = self.ontology_list[idx]
+        info = self.diagnosis_to_groups.get(name, {})
+        return {
+            "code": info.get("Code"),
+            "name": name,
+            "score": score,
+            "group_1": info.get("WHO-like Subcategories"),
+            "group_2": info.get("WHO-like Categories"),
+            "group_3": info.get("WHO-like Major Sections/Lineages"),
+            "group_4": info.get("Diagnostic group 4"),
+        }
 
-        pairs = []
-
-        labels = []
-
-        for label, item in candidate_concepts.items():
-            concept = item["concept"]
-
-            candidate_text = " ; ".join(concept["all_synonyms"])
-
-            pairs.append((text, candidate_text))
-
-            labels.append(label)
-
-        if self.use_classifier:
-            ontology_terms = [self.ontology_texts[idx] for idx in top_indices]
-            # similarity_scores = [similarities[idx] for idx in top_indices]
-            reasoning, matching_term = self._classify_matches(text, ontology_terms)
-        else:
-            rerank_scores = self.reranker.predict(pairs)
-            classifier_probs = None
-
-        adjusted_scores = []
-
-        query_lower = text.lower()
-
-        if not self.use_classifier:
-            for score, label in zip(rerank_scores, labels):
-                concept = candidate_concepts[label]["concept"]
-
-                bonus = 0.0
-                penalty = 0.0
-
-                synonyms = [s.lower() for s in concept["all_synonyms"]]
-
-                # exact phrase match bonus
-                for synonym in synonyms:
-                    if synonym in query_lower:
-                        bonus += 0.15
-
-                # penalize candidate being more specific than query
-                # e.g. "primary cutaneous marginal zone lymphoma"
-                # vs "marginal zone lymphoma"
-                best_synonym = max(
-                    synonyms,
-                    key=len,
-                )
-
-                extra_words = set(best_synonym.split()) - set(query_lower.split())
-
-                if len(extra_words) >= 2:
-                    penalty -= 0.10
-
-                adjusted_scores.append(float(score) + bonus + penalty)
-
-            # Get top N results sorted by score (descending)
-            top_indices = np.argsort(adjusted_scores)[::-1][:top_n]
-
-
-            results = {}
-
-            for rank, idx in enumerate(top_indices, start=1):
-                score = float(adjusted_scores[idx])
-
-                # Skip if below threshold
-                if score < self.acceptance_threshold:
-                    continue
-
-                code = labels[idx]
-                concept = candidate_concepts[code]["concept"]
-
-                result = {
-                    "code": code,
-                    "name": concept["description"],
-                    "score": score,
-                }
-
-                # Add diagnostic groups if available
-                if code in self.code_to_groups:
-                    groups = self.code_to_groups[code]
-                    result["group_1"] = groups.get("WHO-like Subcategories")
-                    result["group_2"] = groups.get("WHO-like Categories")
-                    result["group_3"] = groups.get("WHO-like Major Sections/Lineages")
-                    result["group_4"] = groups.get("Diagnostic group 4")
-
-                results[f"top_{rank}"] = result
-
-        else:
-            results = {}
-
-            if matching_term is not None:
-                # Find the corresponding code for the matching term
-                for concept in self.ontology:
-                    if matching_term in concept["all_synonyms"]:
-                        code = concept["label"]
-                        result = {
-                            "code": code,
-                            "name": matching_term,
-                            "score": None,  # Classifier does not provide a score
-                        }
-
-                        # Add diagnostic groups if available
-                        if code in self.code_to_groups:
-                            groups = self.code_to_groups[code]
-                            result["group_1"] = groups.get("WHO-like Subcategories")
-                            result["group_2"] = groups.get("WHO-like Categories")
-                            result["group_3"] = groups.get("WHO-like Major Sections/Lineages")
-                            result["group_4"] = groups.get("Diagnostic group 4")
-
-                        results["top_1"] = result
-                        break
-
+    def _finalize(self, ranked, top_n):
+        threshold = (
+            self.classifier_min_prob if self.use_classifier else self.acceptance_threshold
+        )
+        results, rank = {}, 0
+        for idx, score in ranked:
+            if score is not None and score < threshold:
+                continue
+            rank += 1
+            results[f"top_{rank}"] = self._make_result(idx, score)
+            if rank >= top_n:
+                break
         return results
 
 
-def load_ontology(excel_file):
-    """
-    Input Excel:
+def load_ontology(excel_file: str) -> tuple[list, dict]:
+    """ Load ontology from an Excel file and return a list of concepts, and the
+    mapping of diagnosis concepts to codes and groups.
 
-    Code | Diagnosis | WHO-like Subcategories | WHO-like Categories | WHO-like Major Sections/Lineages | Diagnostic group 4
+    Args:
+        excel_file (str): Path to the Excel file containing the ontology.
 
-    Multiple rows with same code are treated as synonyms.
+    Returns:
+        tuple: A tuple containing:
+            - ontology_list (list): A list of ontology concepts.
+            - diagnosis_to_groups (dict): A dictionary mapping diagnosis concepts to
+                their corresponding codes and groups
     """
     logger.info("Loading ontology from %s", excel_file)
     df = pd.read_excel(excel_file)
 
-    required = {"Code", "Diagnosis"}
+    ontology_list = []
+    diagnosis_to_groups = {}
 
-    missing = required - set(df.columns)
-
-    if missing:
-        logger.error("Missing columns in ontology file: %s", missing)
-        raise ValueError(f"Missing columns in ontology file: {missing}")
-
-    grouped = defaultdict(list)
-    code_to_groups = {}
-
+    # Iterate through the DataFrame rows and map codes to their corresponding diagnoses and group names.
     for _, row in df.iterrows():
-        code = row["Code"]
-        diagnosis = row["Diagnosis"]
-
-        if pd.isna(code) or pd.isna(diagnosis):
-            continue
-
-        grouped[code].append(str(diagnosis).strip())
-
-        # Store group information for each code (take first occurrence)
-        if code not in code_to_groups:
-            code_to_groups[code] = {
-                "WHO-like Subcategories": row.get("WHO-like Subcategories"),
-                "WHO-like Categories": row.get("WHO-like Categories"),
-                "WHO-like Major Sections/Lineages": row.get(
-                    "WHO-like Major Sections/Lineages"
-                ),
-                "Diagnostic group 4": row.get("Diagnostic group 4"),
-            }
-
-    ontology = []
-
-    for code, synonyms in grouped.items():
-        synonyms = sorted(set(synonyms))
-
-        for synonym in synonyms:
-            ontology.append(
-                {
-                    "label": code,
-                    "description": synonym,
-                    "all_synonyms": synonyms,
-                }
-            )
-
-    logger.info(
-        f"Loaded {len(ontology)} synonym entries for {len(grouped)} ontology concepts"
-    )
-
-    diagnosis_to_code = {}
-
-    for _, row in df.iterrows():
-        code = row["Code"]
         diagnosis = str(row["Diagnosis"]).strip()
 
-        diagnosis_to_code[diagnosis] = code
+        ontology_list.append(diagnosis)
 
-    return ontology, code_to_groups, diagnosis_to_code
+        # Store code and group information for each diagnosis:
+        diagnosis_to_groups[diagnosis] = {
+            "Code": row.get("Code"),
+            "WHO-like Subcategories": row.get("WHO-like Subcategories"),
+            "WHO-like Categories": row.get("WHO-like Categories"),
+            "WHO-like Major Sections/Lineages": row.get(
+                "WHO-like Major Sections/Lineages"
+            ),
+            "Diagnostic group 4": row.get("Diagnostic group 4"),
+        }
+
+    logger.info(
+        f"Loaded {len(ontology_list)} ontology concepts."
+    )
+
+    return ontology_list, diagnosis_to_groups
 
 
 def iter_records(input_file):
@@ -395,6 +429,12 @@ def iter_records(input_file):
 
     else:
         raise ValueError(f"Unsupported input file format: {input_file}")
+
+
+def chunked(iterable, size):
+    it = iter(iterable)
+    while chunk := list(islice(it, size)):
+        yield chunk
 
 
 def build_diagnosis_results(results, prefix):
@@ -427,61 +467,60 @@ def build_diagnosis_results(results, prefix):
     return output
 
 
-def process_record(
-    record,
-    matcher,
-    top_n,
-    ontology_matching,
-    code_to_groups,
-    diagnosis_to_code,
-):
-    primary = record.get("primary_diagnosis")
-    primary_code = diagnosis_to_code.get(primary)
+def collect_diagnoses(record):
+    yield record.get("primary_diagnosis")
+    for container in record.get("containers", []):
+        yield container.get("diagnosis")
+
+
+def resolve_diagnosis(diagnosis, matches, ontology_matching, diagnosis_to_groups):
+    """Return a {top_k: result} dict for one diagnosis string."""
+    key = normalize_text(diagnosis)
 
     if ontology_matching:
-        results = matcher.match(primary, top_n=top_n)
-    else:
-        groups = code_to_groups.get(primary_code, {})
-        results = {
-            "top_1": {
-                "code": primary_code,
-                "name": primary,
-                "score": None,
-                "group_1": groups.get("WHO-like Subcategories"),
-                "group_2": groups.get("WHO-like Categories"),
-                "group_3": groups.get("WHO-like Major Sections/Lineages"),
-                "group_4": groups.get("Diagnostic group 4"),
-            }
-        }
+        return matches.get(key, {})
 
+    if not key:
+        return {}
+
+    info = diagnosis_to_groups.get(key)
+    if info is None:
+        logger.warning("Diagnosis %r not found in ontology.", diagnosis)
+        info = {}
+
+    return {
+        "top_1": {
+            "code": info.get("Code"),
+            "name": diagnosis,
+            "score": None,
+            "group_1": info.get("WHO-like Subcategories"),
+            "group_2": info.get("WHO-like Categories"),
+            "group_3": info.get("WHO-like Major Sections/Lineages"),
+            "group_4": info.get("Diagnostic group 4"),
+        }
+    }
+
+
+def process_record(record, matches, ontology_matching, diagnosis_to_groups):
+    results = resolve_diagnosis(
+        record.get("primary_diagnosis"),
+        matches,
+        ontology_matching,
+        diagnosis_to_groups
+    )
     record["valid_primary_diagnoses"] = build_diagnosis_results(
-        results,
-        prefix="valid_primary_diagnosis",
+        results, prefix="valid_primary_diagnosis"
     )
 
     for container in record.get("containers", []):
-        diagnosis = container.get("diagnosis")
-        diagnosis_code = diagnosis_to_code.get(diagnosis)
-
-        if ontology_matching:
-            results = matcher.match(diagnosis, top_n=top_n)
-        else:
-            groups = code_to_groups.get(diagnosis_code, {})
-            results = {
-                "top_1": {
-                    "code": diagnosis_code,
-                    "name": diagnosis,
-                    "score": None,
-                    "group_1": groups.get("WHO-like Subcategories"),
-                    "group_2": groups.get("WHO-like Categories"),
-                    "group_3": groups.get("WHO-like Major Sections/Lineages"),
-                    "group_4": groups.get("Diagnostic group 4"),
-                }
-            }
-
+        results = resolve_diagnosis(
+            container.get("diagnosis"),
+            matches,
+            ontology_matching,
+            diagnosis_to_groups
+        )
         container["valid_diagnoses"] = build_diagnosis_results(
-            results,
-            prefix="valid_diagnosis",
+            results, prefix="valid_diagnosis"
         )
 
     return record
@@ -493,24 +532,29 @@ def process_json(
     matcher,
     top_n,
     ontology_matching,
-    code_to_groups,
-    diagnosis_to_code,
+    diagnosis_to_groups,
+    chunk_size=256,
 ):
+    """Stream records in chunks; match every distinct diagnosis in a chunk in one batch."""
+    n_cases = 0
     with open(output_file, "w") as fout:
-        for n_cases, record in enumerate(iter_records(input_file), start=1):
-            record = process_record(
-                record=record,
-                matcher=matcher,
-                top_n=top_n,
-                ontology_matching=ontology_matching,
-                code_to_groups=code_to_groups,
-                diagnosis_to_code=diagnosis_to_code,
-            )
+        for chunk in chunked(iter_records(input_file), chunk_size):
+            matches = {}
+            if ontology_matching:
+                texts = [d for record in chunk for d in collect_diagnoses(record)]
+                matches = matcher.match_many(texts, top_n=top_n)
 
-            fout.write(json.dumps(record, ensure_ascii=False) + "\n")
+            for record in chunk:
+                record = process_record(
+                    record,
+                    matches,
+                    ontology_matching,
+                    diagnosis_to_groups,
+                )
+                fout.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-            if n_cases % 100 == 0:
-                logger.info(f"Processed {n_cases} cases...")
+            n_cases += len(chunk)
+            logger.info(f"Processed {n_cases} cases...")
 
 
 def load_config(config_path: str) -> dict:
@@ -546,38 +590,44 @@ def main(run_name: str, config: dict) -> None:
 
     logger.info("Starting ontology matching for run: %s", run_name)
 
-    # Check if we are in ontology matching mode
     ontology_matching = config.get("ontology_matching", False)
 
     input_file = f"outputs/{run_name}/predictions_{run_name}.jsonl"
     output_file = f"outputs/{run_name}/ontology_{run_name}.jsonl"
 
-    ontology, code_to_groups, diagnosis_to_code = load_ontology(
+    ontology_list, diagnosis_to_groups = load_ontology(
         config["diagnosis_dictionary"]
     )
 
+    m = config["matching"]
     matcher = None
     if ontology_matching:
         logger.info("Initializing ontology matcher")
-        use_classifier = config["matching"].get("use_classifier", False)
+        use_classifier = m.get("use_classifier", False)
         matcher = OntologyMatcher(
-            ontology=ontology,
+            ontology_list=ontology_list,
             embedding_model=config["models"]["embedding_model"],
             reranker_model=config["models"]["reranker_model"],
-            retrieval_k=config["matching"]["retrieval_k"],
-            acceptance_threshold=config["matching"]["acceptance_threshold"],
-            use_prefilter=config["matching"]["use_prefilter"],
-            code_to_groups=code_to_groups,
+            retrieval_k=m["retrieval_k"],
+            acceptance_threshold=m["acceptance_threshold"],
+            use_prefilter=m["use_prefilter"],
+            diagnosis_to_groups=diagnosis_to_groups,
             classifier_model=config["models"].get("classifier_model") if use_classifier else None,
             use_classifier=use_classifier,
+            classifier_mode=m.get("classifier_mode", "logits"),
+            classifier_batch_size=m.get("classifier_batch_size", 16),
+            classifier_max_options=m.get("classifier_max_options", 10),
+            classifier_min_prob=m.get("classifier_min_prob", 0.0),
+            classifier_max_new_tokens=m.get("classifier_max_new_tokens", 384),
+            encode_batch_size=m.get("encode_batch_size", 64),
         )
 
     process_json(
         input_file,
         output_file,
         matcher,
-        top_n=config["matching"]["top_n"],
+        top_n=m["top_n"],
         ontology_matching=ontology_matching,
-        code_to_groups=code_to_groups,
-        diagnosis_to_code=diagnosis_to_code,
+        diagnosis_to_groups=diagnosis_to_groups,
+        chunk_size=m.get("chunk_size", 256),
     )

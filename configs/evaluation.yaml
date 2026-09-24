@@ -4,7 +4,7 @@
 # where <run_name> is the experiment name (e.g., '20260701_100301')
 
 # Paths
-validation_file: ...
+validation_file: inputs/NM_LN_validation.xlsx
 diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260824.xlsx
 
 # Ontology matching mode
@@ -23,6 +23,16 @@ matching:
   use_prefilter: true
   use_classifier: true
   top_n: 5
+  # Classifier parameters
+  classifier_mode: "logits" # "logits" | "generate"
+  classifier_batch_size: 16
+  classifier_max_options: 10
+  classifier_min_prob: 0.0
+  classifier_max_new_tokens: 1024
+  # Encoding parameters
+  encode_batch_size: 64
+  # Processing parameters
+  chunk_size: 256
 
 # Parameters
 parameters:

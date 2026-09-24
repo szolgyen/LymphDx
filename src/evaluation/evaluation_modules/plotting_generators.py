@@ -133,7 +133,6 @@ def _build_label_to_major_mapping_from_codes(
     report_df: pd.DataFrame,
     group_key: str,
     major_group: str,
-    code_to_groups: dict,
 ) -> dict[str, str]:
     """Build a mapping from diagnosis labels to their major_group classification.
 
@@ -145,7 +144,6 @@ def _build_label_to_major_mapping_from_codes(
         report_df: Report-level DataFrame containing gt_code, pred_code, and group columns.
         group_key: Source group key (e.g., "group_2").
         major_group: Target major group key (e.g., "group_4").
-        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Returns:
         Dictionary mapping label values to their major_group values.
@@ -261,7 +259,6 @@ def generate_diagnosis_group_confusion_matrix(
     group_terminology: dict[str, str] | None = None,
     dictionary_excel_path: Path | str | None = None,
     major_group: str | None = None,
-    code_to_groups: dict | None = None,
 ) -> None:
     """Generate normalized confusion matrix heatmap for a diagnosis group.
 
@@ -349,10 +346,10 @@ def generate_diagnosis_group_confusion_matrix(
     major_order = []
     colors_map = {}
 
-    if code_to_groups and group_key != major_group:
+    if group_key != major_group:
         # Use actual code classifications instead of generalized group mappings
         source_to_major_mapping = _build_label_to_major_mapping_from_codes(
-            report_df, group_key, major_group, code_to_groups
+            report_df, group_key, major_group
         )
 
     if source_to_major_mapping:

@@ -36,7 +36,7 @@ def run_evaluation(
     ontology_matching: bool = False,
     dictionary_excel_path: Path | str | None = None,
     major_group: str | None = None,
-    code_to_groups: dict | None = None,
+    diagnosis_to_groups: dict | None = None,
 ) -> None:
     """Run complete evaluation pipeline.
 
@@ -178,7 +178,7 @@ def run_evaluation(
         group_terminology=group_terminology,
         dictionary_excel_path=dictionary_excel_path,
         major_group=major_group,
-        code_to_groups=code_to_groups,
+        diagnosis_to_groups=diagnosis_to_groups,
     )
     logger.info("Evaluation completed successfully")
 
@@ -204,7 +204,7 @@ def _write_evaluation_outputs(
     group_terminology: dict[str, str] | None = None,
     dictionary_excel_path: Path | str | None = None,
     major_group: str | None = None,
-    code_to_groups: dict | None = None,
+    diagnosis_to_groups: dict | None = None,
 ) -> None:
     """Write all evaluation outputs to files and generate visualizations.
 
@@ -355,7 +355,6 @@ def _write_evaluation_outputs(
                 group_terminology,
                 dictionary_excel_path,
                 major_group,
-                code_to_groups,
             )
 
     # Generate container confusion matrix plots for each diagnosis group (if data is available)
@@ -377,11 +376,6 @@ def _write_evaluation_outputs(
                 plot_df["gt_group2"] = plot_df["gt_container_group2"]
                 plot_df["gt_group3"] = plot_df["gt_container_group3"]
                 plot_df["gt_group4"] = plot_df["gt_container_group4"]
-                plot_df["pred_group4"] = plot_df["pred_container_code"].map(
-                    lambda code: code_to_groups.get(code, {}).get("Diagnostic group 4")
-                    if code_to_groups and pd.notna(code)
-                    else None
-                )
 
                 plotting_generators.generate_diagnosis_group_confusion_matrix(
                     plot_df,
@@ -390,7 +384,6 @@ def _write_evaluation_outputs(
                     group_terminology,
                     dictionary_excel_path,
                     major_group,
-                    code_to_groups,
                 )
 
 
@@ -422,7 +415,7 @@ def main(run_name: str | None = None) -> None:
 
     # Load ontology to get code_to_groups mapping
     logger.info("Loading diagnosis ontology from %s", dictionary_excel_path)
-    _, code_to_groups, _ = ontology.load_ontology(dictionary_excel_path)
+    _, diagnosis_to_groups = ontology.load_ontology(dictionary_excel_path)
 
     run_evaluation(
         gt_excel=Path(config["validation_file"]),
@@ -435,7 +428,7 @@ def main(run_name: str | None = None) -> None:
         ontology_matching=ontology_matching,
         dictionary_excel_path=dictionary_excel_path,
         major_group=major_group,
-        code_to_groups=code_to_groups,
+        diagnosis_to_groups=diagnosis_to_groups,
     )
 
 
