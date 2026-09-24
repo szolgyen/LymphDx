@@ -70,6 +70,7 @@ class OntologyMatcher:
         self.classifier_max_new_tokens = classifier_max_new_tokens
         self.encode_batch_size = encode_batch_size
         self._cache = {}
+        self._reasoning_cache = {}
 
         # ---- lookup structures (built once) ----
         # normalized string -> concept index (exact-match shortcut)
@@ -145,6 +146,13 @@ class OntologyMatcher:
             for k, res in self._match_uncached(todo, top_n).items():
                 self._cache[(k, top_n)] = res
         return {k: self._cache[(k, top_n)] for k in keys}
+
+    def get_reasoning(self, text):
+        """Get stored reasoning for a text (only available if classifier_mode='generate').
+        Returns the reasoning string or None if not available.
+        """
+        key = normalize_text(text)
+        return self._reasoning_cache.get(key)
 
     # ------------------------------------------------------------------
     # Pipeline stages
@@ -229,13 +237,15 @@ class OntologyMatcher:
             f"Concept: {concept}\n\n"
             f"Options:\n{options}\n\n"
             "Choose the option that is the closest semantic match to the concept. "
-            "Prefer the option at the same level of specificity as the concept "
-            "(not broader, not a more specific subtype). "
         )
         if cot:
             prompt += (
-                "Give your reasoning, then on the last line "
-                "write your final answer as <answer>LETTER</answer>."
+                "\n\nGive your reasoning in three sections:\n"
+                "  1. Analysis of the concept.\n"
+                "  2. Analysis of the options.\n"
+                "  3. Final decision with explanation.\n\n"
+                "Put the letter of your final answer between <answer> and </answer> tags.\n\n"
+                "For example, if your final answer is Z, write as <answer>Z</answer>."
             )
         else:
             prompt += "Reply with the option letter only."
@@ -281,6 +291,11 @@ class OntologyMatcher:
         tok = self.classifier_tokenizer
         order = sorted(range(len(prompts)), key=lambda i: len(prompts[i]))
         out = [None] * len(prompts)
+        total_prompts = len(prompts)
+        processed = 0
+
+        logger.info(f"Starting generation for {total_prompts} prompts (with reasoning/CoT)...")
+
         for s in range(0, len(order), self.classifier_batch_size):
             batch = order[s : s + self.classifier_batch_size]
             enc = self._encode([prompts[i] for i in batch])
@@ -295,6 +310,12 @@ class OntologyMatcher:
             )
             for i, t in zip(batch, texts):
                 out[i] = t.strip()
+
+            processed += len(batch)
+            if processed % self.classifier_batch_size == 0 or processed == total_prompts:
+                logger.info(f"Generation progress: {processed}/{total_prompts} prompts completed")
+
+        logger.info(f"Generation completed for all {total_prompts} prompts")
         return out
 
     @staticmethod
@@ -338,9 +359,16 @@ class OntologyMatcher:
             for i, sl, out in zip(pending, shortlists, self._generate(prompts)):
                 reasoning, answer = self.split_output(out)
                 logger.debug("%s -> %s\n%s", texts[i], answer, reasoning)
+
+                # Store complete model output (including <answer> tags) for reasoning
+                self._reasoning_cache[texts[i]] = out
+
+                # Parse the answer letter
                 j = self._parse_letter(answer, len(sl))
+
                 if j is not None:
-                    ranked[i] = [(sl[j], None)]   # no calibrated score
+                    ranked[i] = [(sl[j], None)]
+
         return ranked
 
     # ---- output --------------------------------------------------------
@@ -526,6 +554,73 @@ def process_record(record, matches, ontology_matching, diagnosis_to_groups):
     return record
 
 
+def _save_reasoning_files(record, matcher, reports_dir):
+    """Save reasoning from classifier to a single markdown file per case.
+    Combines primary diagnosis and all container diagnoses in one file.
+
+    Args:
+        record: The processed record with case_id
+        matcher: OntologyMatcher instance with reasoning cache
+        reports_dir: Directory to save reasoning files
+
+    Returns:
+        int: Number of reasoning files saved (0 or 1)
+    """
+    case_id = record.get("case_id")
+    if not case_id:
+        return 0
+
+    reports_path = Path(reports_dir)
+    reports_path.mkdir(parents=True, exist_ok=True)
+
+    # Collect all diagnoses with reasoning
+    diagnoses_with_reasoning = []
+
+    # Primary diagnosis
+    primary_diagnosis = record.get("primary_diagnosis")
+    if primary_diagnosis:
+        reasoning = matcher.get_reasoning(primary_diagnosis)
+        if reasoning:
+            diagnoses_with_reasoning.append(("Primary Diagnosis", primary_diagnosis, reasoning))
+
+    # Container diagnoses
+    for idx, container in enumerate(record.get("containers", [])):
+        diagnosis = container.get("diagnosis")
+        if diagnosis:
+            reasoning = matcher.get_reasoning(diagnosis)
+            if reasoning:
+                diagnoses_with_reasoning.append((f"Container {idx + 1}", diagnosis, reasoning))
+
+    # If no reasoning found, return 0
+    if not diagnoses_with_reasoning:
+        return 0
+
+    # Save all reasoning to a single markdown file
+    # Format case_id as 4-digit zero-padded
+    formatted_case_id = f"{case_id:0>4}" if isinstance(case_id, (int, float)) else str(case_id).zfill(4)
+    filename = f"case_{formatted_case_id}.md"
+    filepath = reports_path / filename
+
+    # Create markdown content with all diagnoses and their reasoning
+    content = f"# Case {formatted_case_id}\n\n"
+
+    for diagnosis_type, diagnosis_text, reasoning in diagnoses_with_reasoning:
+        content += f"## {diagnosis_type}\n\n"
+        content += f"**Diagnosis:** {diagnosis_text}\n\n"
+        content += f"### Reasoning\n\n"
+        # Preserve reasoning with proper line breaks for readability
+        content += reasoning.strip() + "\n\n"
+
+    try:
+        with open(filepath, "w") as f:
+            f.write(content)
+        logger.info(f"Saved reasoning file: {filename} ({len(diagnoses_with_reasoning)} diagnosis/diagnoses)")
+        return 1
+    except Exception as e:
+        logger.error(f"Failed to save reasoning to {filepath}: {e}")
+        return 0
+
+
 def process_json(
     input_file,
     output_file,
@@ -534,9 +629,26 @@ def process_json(
     ontology_matching,
     diagnosis_to_groups,
     chunk_size=256,
+    reports_dir=None,
 ):
-    """Stream records in chunks; match every distinct diagnosis in a chunk in one batch."""
+    """Stream records in chunks; match every distinct diagnosis in a chunk in one batch.
+
+    Args:
+        input_file: Path to input JSONL file
+        output_file: Path to output JSONL file
+        matcher: OntologyMatcher instance
+        top_n: Number of top results to keep
+        ontology_matching: Whether to use ontology matching
+        diagnosis_to_groups: Diagnosis to groups mapping
+        chunk_size: Batch size for processing
+        reports_dir: Optional directory to save reasoning files (only when classifier_mode='generate')
+    """
     n_cases = 0
+    reasoning_files_saved = 0
+
+    if reports_dir:
+        logger.info(f"Reasoning export enabled - saving to: {reports_dir}")
+
     with open(output_file, "w") as fout:
         for chunk in chunked(iter_records(input_file), chunk_size):
             matches = {}
@@ -553,8 +665,20 @@ def process_json(
                 )
                 fout.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+                # Save reasoning files if reports_dir is provided and matcher is in generate mode
+                if reports_dir and matcher and matcher.classifier_mode == "generate":
+                    files_saved = _save_reasoning_files(
+                        record,
+                        matcher,
+                        reports_dir,
+                    )
+                    reasoning_files_saved += files_saved
+
             n_cases += len(chunk)
-            logger.info(f"Processed {n_cases} cases...")
+            logger.info(f"Processed {n_cases} cases... ({reasoning_files_saved} reasoning files saved)")
+
+    if reports_dir:
+        logger.info(f"Completed - Total reasoning files saved: {reasoning_files_saved}")
 
 
 def load_config(config_path: str) -> dict:
@@ -594,6 +718,7 @@ def main(run_name: str, config: dict) -> None:
 
     input_file = f"outputs/{run_name}/predictions_{run_name}.jsonl"
     output_file = f"outputs/{run_name}/ontology_{run_name}.jsonl"
+    reports_dir = f"outputs/{run_name}/reports"
 
     ontology_list, diagnosis_to_groups = load_ontology(
         config["diagnosis_dictionary"]
@@ -622,6 +747,11 @@ def main(run_name: str, config: dict) -> None:
             encode_batch_size=m.get("encode_batch_size", 64),
         )
 
+    # Create reports directory if reasoning export is enabled
+    if ontology_matching and m.get("classifier_mode") == "generate":
+        Path(reports_dir).mkdir(parents=True, exist_ok=True)
+        logger.info("Reports directory created at: %s", reports_dir)
+
     process_json(
         input_file,
         output_file,
@@ -630,4 +760,5 @@ def main(run_name: str, config: dict) -> None:
         ontology_matching=ontology_matching,
         diagnosis_to_groups=diagnosis_to_groups,
         chunk_size=m.get("chunk_size", 256),
+        reports_dir=reports_dir if ontology_matching and m.get("classifier_mode") == "generate" else None,
     )
