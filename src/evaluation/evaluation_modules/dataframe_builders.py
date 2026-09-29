@@ -114,6 +114,7 @@ def _build_report_row(
     """
     # Extract ground-truth fields
     gt_code = gt_row["GT Report Diagnosis Code"]
+    gt_name = gt_row["GT Report Diagnosis"].strip()
     gt_group1 = gt_row["GT Report WHO-like Subcategories"]
     gt_group2 = gt_row["GT Report WHO-like Categories"]
     gt_group3 = gt_row["GT Report WHO-like Major Sections/Lineages"]
@@ -211,7 +212,9 @@ def _build_report_row(
         # Case and code information
         "case_id": case_id,
         "gt_code": gt_code,
+        "gt_name": gt_name,
         "pred_code": top_1.get("valid_primary_diagnosis_code"),
+        "pred_name": top_1.get("valid_primary_diagnosis_name"),
         "pred_container_code": pred_container_code,
         "pred_score": top_1.get("valid_primary_diagnosis_score"),
         # Ground-truth group classifications

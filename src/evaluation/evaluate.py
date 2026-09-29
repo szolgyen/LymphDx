@@ -353,7 +353,6 @@ def _write_evaluation_outputs(
                 group_key,
                 filename,
                 group_terminology,
-                dictionary_excel_path,
                 major_group,
             )
 

@@ -6,13 +6,13 @@ Creates publication-ready figures for threshold analysis and confusion matrices.
 import logging
 import textwrap
 from pathlib import Path
-from typing import Any
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch, Rectangle
 import pandas as pd
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+from collections import Counter
 
 from . import metrics_calculators as metrics
 
@@ -89,9 +89,6 @@ def generate_coverage_accuracy_tradeoff_plot(
 ) -> None:
     """Generate plot showing accuracy-coverage tradeoff curve.
 
-    Creates a plot showing how accuracy varies with coverage for different
-    top-k predictions, illustrating the accuracy-coverage tradeoff.
-
     Args:
         threshold_df: DataFrame with coverage and accuracy columns.
         output_path: Path to save the generated PNG file.
@@ -129,16 +126,12 @@ def generate_coverage_accuracy_tradeoff_plot(
     plt.close(fig)
 
 
-def _build_label_to_major_mapping_from_codes(
+def _build_label_to_major_mapping(
     report_df: pd.DataFrame,
     group_key: str,
     major_group: str,
 ) -> dict[str, str]:
     """Build a mapping from diagnosis labels to their major_group classification.
-
-    Uses the actual diagnosis codes and their direct group mappings from code_to_groups,
-    avoiding generalized group-to-group mappings that may lose code-level specificity.
-    Checks both GT and predicted columns to handle predicted-only labels.
 
     Args:
         report_df: Report-level DataFrame containing gt_code, pred_code, and group columns.
@@ -196,14 +189,12 @@ def _build_label_to_major_mapping_from_codes(
 
         if len(major_values) == 1:
             # Simple case: all codes with this label map to the same major_group
-            mapping[label] = major_values[0]
+            mapping[label] = str(major_values[0]).strip()
         else:
             # Multiple major_group values for this label; use most common
-            from collections import Counter
-
             major_counts = Counter(major_values)
             most_common = major_counts.most_common(1)[0][0]
-            mapping[label] = most_common
+            mapping[label] = str(most_common).strip()
 
             logger.debug(
                 f"Label '{label}' has multiple major_group mappings: {major_counts}; "
@@ -224,21 +215,35 @@ def _get_major_group_categories_and_colors(
     Returns:
         Tuple of (ordered_major_categories, colors_map).
     """
-    # Extract unique major group categories in order of first appearance
-    unique_major = []
-    seen = set()
-    for major in source_to_major_mapping.values():
-        if major not in seen:
-            unique_major.append(major)
-            seen.add(major)
+    # Define preferred order for major categories
+    preferred_order = [
+        "Malignant/neoplastic",
+        "Reactive/Inflammatory",
+        "Infectious Lymphadenitis",
+        "Vascular/hamartomatous",
+        "Miscellaneous",
+    ]
+
+    # Extract unique major group categories from the mapping
+    unique_major = {item.strip() for item in source_to_major_mapping.values()}
+
+    # Sort: preferred categories first (in order), then any others alphabetically
+    ordered_major = []
+    for category in preferred_order:
+        if category in unique_major:
+            ordered_major.append(category)
+            unique_major.remove(category)
+
+    # Add any remaining categories not in preferred order
+    ordered_major.extend(sorted(unique_major))
 
     # Generate colors dynamically for all categories
     color_palette = [
         "#d62728",  # Red (Malignant)
-        "#2ca02c",  # Green (Reactive)
-        "#ff7f0e",  # Orange (Infectious)
+        "#1f77b4",  # Blue (Reactive)
+        "#2ca02c",  # Green (Infectious)
+        "#ff7f0e",  # Orange (Vascular)
         "#9467bd",  # Purple (Miscellaneous)
-        "#1f77b4",  # Blue
         "#17becf",  # Cyan
         "#bcbd22",  # Yellow-green
         "#e377c2",  # Pink
@@ -246,10 +251,10 @@ def _get_major_group_categories_and_colors(
     ]
 
     colors_map = {}
-    for i, major in enumerate(unique_major):
+    for i, major in enumerate(ordered_major):
         colors_map[major] = color_palette[i % len(color_palette)]
 
-    return unique_major, colors_map
+    return ordered_major, colors_map
 
 
 def generate_diagnosis_group_confusion_matrix(
@@ -257,26 +262,16 @@ def generate_diagnosis_group_confusion_matrix(
     group_key: str,
     output_path: Path,
     group_terminology: dict[str, str] | None = None,
-    dictionary_excel_path: Path | str | None = None,
     major_group: str | None = None,
 ) -> None:
     """Generate normalized confusion matrix heatmap for a diagnosis group.
-
-    Creates a confusion matrix visualization with special handling for grouping by major_group:
-    - Sorts categories by their actual underlying code's group classification
-    - Color-codes labels by major_group category
-    - Adds separators between major_group regions
-    - Includes legend for disease behavior categories
 
     Args:
         report_df: Report-level DataFrame.
         group_key: Group key to analyze (e.g., "group_1", "group_2", "group_3", "group_4").
         output_path: Path to save the generated PNG file.
         group_terminology: Mapping of group keys to display names.
-        dictionary_excel_path: Path to the Excel file containing diagnosis group mappings.
         major_group: Group to use for organizing axis labels and colors (e.g., "group_3", "group_4").
-                    Defaults to "group_3" if not specified.
-        code_to_groups: Mapping of diagnosis codes to their group classifications.
 
     Raises:
         ValueError: If group_terminology is not provided.
@@ -285,9 +280,9 @@ def generate_diagnosis_group_confusion_matrix(
         logger.error("group_terminology must be provided in the configuration.")
         raise ValueError("group_terminology must be provided in the configuration.")
 
-    # Default to group_3 if major_group not specified
+    
     if major_group is None:
-        major_group = "group_3"
+        major_group = "group_4"
 
     # Get display name for this group
     group_display_name = group_terminology.get(group_key, group_key)
@@ -295,62 +290,33 @@ def generate_diagnosis_group_confusion_matrix(
     # Normalize group key for column access (e.g., "group_2" -> "group2")
     group_normalized = metrics.normalize_group_key(group_key)
 
-    # Map group_normalized to Excel column name (e.g., "group2" -> "WHO-like Categories")
-    group_column_mapping = {
-        "group1": "WHO-like Subcategories",
-        "group2": "WHO-like Categories",
-        "group3": "WHO-like Major Sections/Lineages",
-        "group4": "Diagnostic group 4",
-    }
-    excel_column_name = group_column_mapping.get(group_normalized)
+    if group_normalized == "group4":
+        y_true = report_df["gt_group4"].fillna("N/A").astype(str).str.strip().tolist()
+        y_pred = report_df["pred_group4"].fillna("N/A").astype(str).str.strip().tolist()
 
-    if not excel_column_name:
-        raise ValueError(f"Unknown group normalized key: {group_normalized}")
+        source_to_major_mapping = {
+            label: label
+            for label in set(y_true) | set(y_pred)
+            if label != "N/A"
+        }
 
-    # Load the Excel dictionary to map codes to groups
-    if not dictionary_excel_path:
-        raise ValueError("dictionary_excel_path is required for confusion matrix generation")
+    else:
+        group_column = f"gt_{group_normalized}"
+        pred_group_column = f"pred_{group_normalized}"
 
-    try:
-        code_dict_df = pd.read_excel(dictionary_excel_path)
-    except Exception as e:
-        logger.error(f"Failed to load dictionary Excel file: {e}")
-        raise
+        y_true = report_df[group_column].fillna("N/A").astype(str).str.strip().tolist()
+        y_pred = report_df[pred_group_column].fillna("N/A").astype(str).str.strip().tolist()
 
-    # Build mapping from code to group category
-    code_to_group = {}
-    for _, row in code_dict_df.iterrows():
-        code = row.get("Code")
-        group_value = row.get(excel_column_name)
-        if pd.notna(code) and pd.notna(group_value):
-            code_to_group[int(code) if isinstance(code, float) else code] = group_value
+        source_to_major_mapping = _build_label_to_major_mapping(
+            report_df,
+            group_key,
+            major_group,
+        )
 
-    # Get GT codes and prediction codes, filtering to valid rows
-    valid_mask = (
-        report_df["gt_code"].notna()
-        & report_df["pred_code"].notna()
-    )
-
-    gt_codes = report_df.loc[valid_mask, "gt_code"].tolist()
-    pred_codes = report_df.loc[valid_mask, "pred_code"].tolist()
-
-    # Map codes to their group categories using the dictionary
-    y_true = [code_to_group.get(code, "N/A") for code in gt_codes]
-    y_pred = [code_to_group.get(code, "N/A") for code in pred_codes]
-
-    # Collect all unique categories from both GT and predictions
     all_labels = sorted(set(y_true) | set(y_pred))
 
-    # Build mapping from current group to major_group using actual code classifications
-    source_to_major_mapping = {}
     major_order = []
     colors_map = {}
-
-    if group_key != major_group:
-        # Use actual code classifications instead of generalized group mappings
-        source_to_major_mapping = _build_label_to_major_mapping_from_codes(
-            report_df, group_key, major_group
-        )
 
     if source_to_major_mapping:
         major_order, colors_map = _get_major_group_categories_and_colors(
@@ -359,7 +325,7 @@ def generate_diagnosis_group_confusion_matrix(
 
         # Sort labels by their major_group category
         def get_sort_key(label: str) -> tuple:
-            major = source_to_major_mapping.get(label, "N/A")
+            major = source_to_major_mapping.get(label, "N/A").strip()
             try:
                 major_priority = major_order.index(major)
             except ValueError:
@@ -372,13 +338,6 @@ def generate_diagnosis_group_confusion_matrix(
         all_labels.remove("N/A")
         all_labels.append("N/A")
 
-    # # Compute normalized confusion matrix
-    # cm = confusion_matrix(y_true, y_pred, labels=all_labels, normalize="true")
-    # cm_df = pd.DataFrame(cm, index=all_labels, columns=all_labels)
-    # annot = cm_df.map(lambda x: "0" if x == 0 else f"{x:.2f}")
-    # # annot = cm_df.map(lambda x: "" if x == 0 else f"{x:d}")
-
-    # # TODO
     # Normalized matrix — used for colors
     cm_normalized = confusion_matrix(
         y_true,
@@ -406,9 +365,6 @@ def generate_diagnosis_group_confusion_matrix(
 
     # Display actual counts in the cells
     annot = cm_counts_df.map(lambda x: f"{x:d}")
-    # TODO
-
-    # from matplotlib.colors import LogNorm
 
     # Create figure and heatmap
     fig, ax = plt.subplots(figsize=(15, 12))
@@ -439,7 +395,14 @@ def generate_diagnosis_group_confusion_matrix(
     if source_to_major_mapping:
         major_regions = {}
         for idx, label in enumerate(all_labels):
-            major = source_to_major_mapping.get(label, "Miscellaneous")
+            major = source_to_major_mapping.get(label)
+
+            if major is None:
+                logger.warning("No major-group mapping found for label: %r", label)
+                major = "N/A"
+
+            major = major.strip()
+
             if major not in major_regions:
                 major_regions[major] = [idx, idx]
             else:
@@ -459,16 +422,14 @@ def generate_diagnosis_group_confusion_matrix(
             )
             ax.add_patch(rect)
 
-    # Add special formatting for group_1 and group_2 when grouped by major_group
-    if group_key in ("group_1", "group_2") and source_to_major_mapping:
-        major_group_display = group_terminology.get(major_group, major_group)
+    # Add special formatting grouped by major_group
+    if group_key in ("group_1", "group_2", "group_3", "group_4") and source_to_major_mapping:
         _apply_group_formatting(
             ax,
             all_labels,
             source_to_major_mapping,
             major_order,
-            colors_map,
-            major_group_display,
+            colors_map
         )
 
     # Wrap long labels for readability
@@ -497,8 +458,7 @@ def _apply_group_formatting(
     all_labels: list[str],
     source_to_major_mapping: dict[str, str],
     major_order: list[str],
-    colors_map: dict[str, str],
-    major_group_display: str = "Major Group",
+    colors_map: dict[str, str]
 ) -> None:
     """Apply group-specific formatting: colors, separators, and legend.
 
@@ -508,15 +468,15 @@ def _apply_group_formatting(
         source_to_major_mapping: Mapping from source group labels to major group categories.
         major_order: Ordered list of major group categories.
         colors_map: Mapping from major group categories to hex colors.
-        major_group_display: Display name for the major group (used in legend title).
     """
     # Color y-axis (true) labels
     for label in ax.get_yticklabels():
         label_text = label.get_text()
         if label_text:
+            # Keep N/A separate, don't put it in Miscellaneous
             major = source_to_major_mapping.get(
-                label_text, major_order[-1] if major_order else "Miscellaneous"
-            )
+                label_text, "N/A" if label_text == "N/A" else (major_order[-1] if major_order else "Miscellaneous")
+            ).strip()
             color = colors_map.get(major, "black")
             label.set_color(color)
             label.set_fontweight("bold")
@@ -525,9 +485,10 @@ def _apply_group_formatting(
     for label in ax.get_xticklabels():
         label_text = label.get_text()
         if label_text:
+            # Keep N/A separate, don't put it in Miscellaneous
             major = source_to_major_mapping.get(
-                label_text, major_order[-1] if major_order else "Miscellaneous"
-            )
+                label_text, "N/A" if label_text == "N/A" else (major_order[-1] if major_order else "Miscellaneous")
+            ).strip()
             color = colors_map.get(major, "black")
             label.set_color(color)
             label.set_fontweight("bold")
@@ -535,9 +496,10 @@ def _apply_group_formatting(
     # Add vertical separators between major group categories
     current_major = None
     for idx, label in enumerate(all_labels):
+        # Keep N/A separate, don't put it in Miscellaneous
         major = source_to_major_mapping.get(
-            label, major_order[-1] if major_order else "Miscellaneous"
-        )
+            label, "N/A" if label == "N/A" else (major_order[-1] if major_order else "Miscellaneous")
+        ).strip()
         if current_major is not None and major != current_major:
             ax.axvline(x=idx, color="black", linewidth=0.5, linestyle="--")
         current_major = major
@@ -545,9 +507,10 @@ def _apply_group_formatting(
     # Add horizontal separators between major group categories
     current_major = None
     for idx, label in enumerate(all_labels):
+        # Keep N/A separate, don't put it in Miscellaneous
         major = source_to_major_mapping.get(
-            label, major_order[-1] if major_order else "Miscellaneous"
-        )
+            label, "N/A" if label == "N/A" else (major_order[-1] if major_order else "Miscellaneous")
+        ).strip()
         if current_major is not None and major != current_major:
             ax.axhline(y=idx, color="black", linewidth=0.5, linestyle="--")
         current_major = major
@@ -559,8 +522,8 @@ def _apply_group_formatting(
         if major
         in [
             source_to_major_mapping.get(
-                name, major_order[-1] if major_order else "Miscellaneous"
-            )
+                name, "N/A" if name == "N/A" else (major_order[-1] if major_order else "Miscellaneous")
+            ).strip()
             for name in all_labels
         ]
     ]
