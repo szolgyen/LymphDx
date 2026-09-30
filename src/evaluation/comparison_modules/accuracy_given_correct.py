@@ -2,6 +2,9 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseFigure
 
@@ -34,7 +37,7 @@ class AccuracyGivenCorrectFigure(BaseFigure):
                 elif col in reverse_mapping and reverse_mapping[col] in df.columns:
                     actual_columns.append(reverse_mapping[col])
                 else:
-                    print(f"Warning: Column '{col}' not found in DataFrame, skipping")
+                    logger.warning(f"Column '{col}' not found in DataFrame, skipping")
         elif accuracy_columns:
             actual_columns = accuracy_columns
         else:
@@ -92,4 +95,4 @@ class AccuracyGivenCorrectFigure(BaseFigure):
         plt.savefig(output_path, dpi=dpi, bbox_inches="tight")
         plt.close()
 
-        print(f"Saved accuracy given correct bar plot to: {output_path}")
+        logger.info(f"Saved accuracy given correct bar plot to: {output_path}")

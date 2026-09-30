@@ -3,6 +3,9 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseFigure
 
@@ -178,4 +181,4 @@ class GroupAccuracyFigure(BaseFigure):
         plt.savefig(output_path, dpi=dpi, bbox_inches="tight")
         plt.close()
 
-        print(f"Saved group accuracy bar plot to: {output_path}")
+        logger.info(f"Saved group accuracy bar plot to: {output_path}")

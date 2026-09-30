@@ -3,6 +3,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import colors
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseFigure
 
@@ -39,7 +42,7 @@ class TableFigure(BaseFigure):
                     actual_columns.append(reverse_mapping[col])
                 # If still not found, skip it
                 else:
-                    print(f"Warning: Column '{col}' not found in DataFrame, skipping")
+                    logger.warning(f"Warning: Column '{col}' not found in DataFrame, skipping")
         elif table_columns:
             actual_columns = table_columns
         else:
@@ -100,4 +103,4 @@ class TableFigure(BaseFigure):
         plt.savefig(output_path, dpi=dpi, bbox_inches="tight")
         plt.close()
 
-        print(f"Saved table to: {output_path}")
+        logger.info(f"Saved table to: {output_path}")

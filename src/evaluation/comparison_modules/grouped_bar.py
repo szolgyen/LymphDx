@@ -4,6 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseFigure
 
@@ -51,7 +54,7 @@ class GroupedBarFigure(BaseFigure):
                     actual_columns.append(reverse_mapping[col])
                 # If still not found, skip it
                 else:
-                    print(f"Warning: Column '{col}' not found in DataFrame, skipping")
+                    logger.warning(f"Warning: Column '{col}' not found in DataFrame, skipping")
         elif bar_columns:
             actual_columns = bar_columns
         else:
@@ -90,23 +93,11 @@ class GroupedBarFigure(BaseFigure):
         for i, model_name in enumerate(bar_df.index):
             offsets = [v + (i - (n_models - 1) / 2) * width for v in x]
 
-            # Get base color for this model
-            base_model = model_name.replace("-om", "").replace("-cd", "")
-            base_color = model_base_colors[base_model]
-
-            # Adjust brightness based on om vs cd
-            # om (darker) gets brightness factor 0.8, cd (lighter) gets 1.2
-            if "om" in model_name.lower():
-                bar_color = adjust_color_brightness(base_color, 0.8)
-            else:  # cd
-                bar_color = adjust_color_brightness(base_color, 1.2)
-
             bars = ax.bar(
                 offsets,
                 bar_df.loc[model_name],
                 width=width,
-                label=model_name,
-                color=bar_color,
+                label=model_name
             )
 
             # Value labels
@@ -126,26 +117,17 @@ class GroupedBarFigure(BaseFigure):
         ax.set_xticks(list(x))
         ax.set_xticklabels(bar_df.columns)
         ax.set_ylabel(ylabel)
-        ax.set_ylim(0, 1.2)
+        ax.set_ylim(0, 1.02)
         ax.set_title(title)
 
         # Organize legend: "om" models in first column, "cd" models in second column
         handles, labels = ax.get_legend_handles_labels()
-        om_indices = [i for i, label in enumerate(labels) if "om" in label.lower()]
-        cd_indices = [i for i, label in enumerate(labels) if "cd" in label.lower()]
 
-        sorted_handles = [handles[i] for i in om_indices] + [
-            handles[i] for i in cd_indices
-        ]
-        sorted_labels = [labels[i] for i in om_indices] + [
-            labels[i] for i in cd_indices
-        ]
-
-        ax.legend(sorted_handles, sorted_labels, ncols=2)
+        ax.legend(handles, labels, ncols=1, loc="upper right", bbox_to_anchor=(1.25, 1.0), fontsize=8)
         ax.grid(axis="y", linestyle="--", alpha=0.3)
 
         plt.tight_layout()
         plt.savefig(output_path, dpi=dpi, bbox_inches="tight")
         plt.close()
 
-        print(f"Saved grouped bar plot to: {output_path}")
+        logger.info(f"Saved grouped bar plot to: {output_path}")
