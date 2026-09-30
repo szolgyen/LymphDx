@@ -65,7 +65,9 @@ def build_label_to_major_mapping(
             and gt_major_column in report_df.columns
         ):
             subset_gt = report_df[report_df[gt_group_column] == label]
-            major_values.extend(subset_gt[gt_major_column].dropna().unique().tolist())
+            major_values.extend(
+                subset_gt[gt_major_column].fillna("N/A").astype(str).str.strip().unique().tolist()
+            )
 
         # Look in predicted rows where this label appears in pred column
         if (
@@ -74,7 +76,7 @@ def build_label_to_major_mapping(
         ):
             subset_pred = report_df[report_df[pred_group_column] == label]
             major_values.extend(
-                subset_pred[pred_major_column].dropna().unique().tolist()
+                subset_pred[pred_major_column].fillna("N/A").astype(str).str.strip().unique().tolist()
             )
 
         if not major_values:
@@ -115,6 +117,7 @@ def get_major_group_categories_and_colors(
         "Infectious Lymphadenitis",
         "Vascular/hamartomatous",
         "Miscellaneous",
+        "N/A"
     ]
 
     # Extract unique major group categories from the mapping
@@ -137,7 +140,7 @@ def get_major_group_categories_and_colors(
         "#2ca02c",  # Green (Infectious)
         "#ff7f0e",  # Orange (Vascular)
         "#9467bd",  # Purple (Miscellaneous)
-        "#17becf",  # Cyan
+        "#17becf",  # Cyan (N/A)
         "#bcbd22",  # Yellow-green
         "#e377c2",  # Pink
         "#7f7f7f",  # Gray

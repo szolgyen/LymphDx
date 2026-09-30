@@ -235,7 +235,7 @@ def generate_diagnosis_group_confusion_matrix(
     )
 
     # Display actual counts in the cells
-    annot = cm_counts_df.map(lambda x: f"{x:d}")
+    annot = (False if group_key == "group_0" else cm_counts_df.map(lambda x: f"{x:d}"))
 
     # Create figure and heatmap
     fig, ax = plt.subplots(figsize=(15, 12))
@@ -294,7 +294,7 @@ def generate_diagnosis_group_confusion_matrix(
             ax.add_patch(rect)
 
     # Add special formatting grouped by major_group
-    if group_key in ("group_0", "group_1", "group_2", "group_3", "group_4") and source_to_major_mapping:
+    if group_key in ("group_1", "group_2", "group_3", "group_4") and source_to_major_mapping:
         apply_major_group_formatting(
             ax=ax,
             labels=all_labels,
@@ -304,20 +304,43 @@ def generate_diagnosis_group_confusion_matrix(
             add_horizontal_separators=True,
             legend_kwargs={
                 "loc": "lower left",
-                "bbox_to_anchor": (0.97, -0.19),
+                "bbox_to_anchor": (1.0, -0.2),
+                "fontsize": 12,
+                "title_fontsize": 12,
+            },
+        )
+    else:
+        apply_major_group_formatting(
+            ax=ax,
+            labels=all_labels,
+            mapping=source_to_major_mapping,
+            legend_title="Classification",
+            add_vertical_separators=False,
+            add_horizontal_separators=False,
+            legend_kwargs={
+                "loc": "lower left",
+                "bbox_to_anchor": (1.03, -0.25),
                 "fontsize": 12,
                 "title_fontsize": 12,
             },
         )
 
+    if group_key in ("group_0", "group_1"):
+        max_chars = 30
+        xlab = [label.get_text()[:max_chars] for label in ax.get_xticklabels()]
+        ylab = [label.get_text()[:max_chars] for label in ax.get_yticklabels()]
+    else:
+        xlab = [textwrap.fill(label.get_text(), width=30) for label in ax.get_xticklabels()]
+        ylab = [textwrap.fill(label.get_text(), width=30) for label in ax.get_yticklabels()]
+
     # Wrap long labels for readability
     ax.set_yticklabels(
-        [textwrap.fill(label.get_text(), width=30) for label in ax.get_yticklabels()],
+        ylab,
         fontsize=10,
         rotation=0,
     )
     ax.set_xticklabels(
-        [textwrap.fill(label.get_text(), width=30) for label in ax.get_xticklabels()],
+        xlab,
         fontsize=10,
         rotation=90,
         ha="right",
