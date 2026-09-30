@@ -4,8 +4,8 @@
 # where <run_name> is the experiment name (e.g., '20260701_100301')
 
 # Paths
-validation_file: inputs/NM_LN_validation.xlsx
-diagnosis_dictionary: inputs/LN_Dx_dictionary_codes_20260824.xlsx
+validation_file: ...
+diagnosis_dictionary: ...
 
 # Ontology matching mode
 ontology_matching: true
@@ -28,11 +28,11 @@ matching:
   classifier_batch_size: 16
   classifier_max_options: 10
   classifier_min_prob: 0.0
-  classifier_max_new_tokens: 1024
+  classifier_max_new_tokens: 2048
   # Encoding parameters
   encode_batch_size: 64
   # Processing parameters
-  chunk_size: 256
+  chunk_size: 32
 
 # Parameters
 parameters:
@@ -40,10 +40,11 @@ parameters:
   RARE_DIAGNOSIS_THRESHOLD: 2
   THRESHOLD_STEPS: 500
   GT_SHEET_NAME: "Sheet1"
-  EXCLUDE_FAILED: true
+  EXCLUDE_FAILED: false
 
 # Group Terminology (customize the display names for each group)
 group_terminology:
+  group_0: "Diagnosis"
   group_1: "WHO-like Subcategories"
   group_2: "WHO-like Categories"
   group_3: "WHO-like Major Sections/Lineages"
@@ -65,6 +66,7 @@ output_files:
   OUTPUT_ACCURACY_BREAKDOWN_GROUP_2: true
   OUTPUT_ACCURACY_BREAKDOWN_GROUP_3: true
   OUTPUT_ACCURACY_BREAKDOWN_GROUP_4: true
+  OUTPUT_CONFUSION_MATRIX_GROUP_0: true
   OUTPUT_CONFUSION_MATRIX_GROUP_1: true
   OUTPUT_CONFUSION_MATRIX_GROUP_2: true
   OUTPUT_CONFUSION_MATRIX_GROUP_3: true
@@ -73,6 +75,7 @@ output_files:
   OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_2: true
   OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_3: true
   OUTPUT_CONTAINER_ACCURACY_BREAKDOWN_GROUP_4: true
+  OUTPUT_CONTAINER_CONFUSION_MATRIX_GROUP_0: true
   OUTPUT_CONTAINER_CONFUSION_MATRIX_GROUP_1: true
   OUTPUT_CONTAINER_CONFUSION_MATRIX_GROUP_2: true
   OUTPUT_CONTAINER_CONFUSION_MATRIX_GROUP_3: true

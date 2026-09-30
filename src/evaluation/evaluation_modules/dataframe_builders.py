@@ -218,11 +218,13 @@ def _build_report_row(
         "pred_container_code": pred_container_code,
         "pred_score": top_1.get("valid_primary_diagnosis_score"),
         # Ground-truth group classifications
+        "gt_group0": gt_name,
         "gt_group1": gt_group1,
         "gt_group2": gt_group2,
         "gt_group3": gt_group3,
         "gt_group4": gt_group4,
         # Predicted group classifications
+        "pred_group0": top_1.get("valid_primary_diagnosis_name"),
         "pred_group1": pred_group1,
         "pred_group2": pred_group2,
         "pred_group3": pred_group3,
@@ -242,16 +244,19 @@ def _build_report_row(
         "top3_correct": gt_code in topk_codes[3],
         "top5_correct": gt_code in topk_codes[5],
         # Top-1 group accuracy flags
+        "top1_group0_correct": gt_code in topk_codes[1],
         "top1_group1_correct": gt_group1 == pred_group1,
         "top1_group2_correct": gt_group2 == pred_group2,
         "top1_group3_correct": gt_group3 == pred_group3,
         "top1_group4_correct": gt_group4 == pred_group4,
         # Top-3 group accuracy flags
+        "top3_group0_correct": gt_code in topk_codes[3],
         "top3_group1_correct": gt_group1 in top3_group1 if top3_group1 else False,
         "top3_group2_correct": gt_group2 in top3_group2 if top3_group2 else False,
         "top3_group3_correct": gt_group3 in top3_group3 if top3_group3 else False,
         "top3_group4_correct": gt_group4 in top3_group4 if top3_group4 else False,
         # Top-5 group accuracy flags
+        "top5_group0_correct": gt_code in topk_codes[5],
         "top5_group1_correct": gt_group1 in top5_group1 if top5_group1 else False,
         "top5_group2_correct": gt_group2 in top5_group2 if top5_group2 else False,
         "top5_group3_correct": gt_group3 in top5_group3 if top5_group3 else False,

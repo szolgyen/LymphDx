@@ -247,6 +247,7 @@ def _write_evaluation_outputs(
         "OUTPUT_ACCURACY_BREAKDOWN_GROUP_2": "report_accuracy_breakdown_group_2.csv",
         "OUTPUT_ACCURACY_BREAKDOWN_GROUP_3": "report_accuracy_breakdown_group_3.csv",
         "OUTPUT_ACCURACY_BREAKDOWN_GROUP_4": "report_accuracy_breakdown_group_4.csv",
+        "OUTPUT_CONFUSION_MATRIX_GROUP_0": "report_confusion_matrix_group_0.png",
         "OUTPUT_CONFUSION_MATRIX_GROUP_1": "report_confusion_matrix_group_1.png",
         "OUTPUT_CONFUSION_MATRIX_GROUP_2": "report_confusion_matrix_group_2.png",
         "OUTPUT_CONFUSION_MATRIX_GROUP_3": "report_confusion_matrix_group_3.png",

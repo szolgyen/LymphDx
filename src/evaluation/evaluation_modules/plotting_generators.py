@@ -294,7 +294,7 @@ def generate_diagnosis_group_confusion_matrix(
             ax.add_patch(rect)
 
     # Add special formatting grouped by major_group
-    if group_key in ("group_1", "group_2", "group_3", "group_4") and source_to_major_mapping:
+    if group_key in ("group_0", "group_1", "group_2", "group_3", "group_4") and source_to_major_mapping:
         apply_major_group_formatting(
             ax=ax,
             labels=all_labels,
