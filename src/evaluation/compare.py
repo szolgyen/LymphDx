@@ -121,12 +121,12 @@ def generate_figures(df: pd.DataFrame, config: dict) -> None:
     name_mappings = config.get("name_mappings", {})
 
     # Load code_to_groups mapping for group breakdown matrices
-    code_to_groups = None
+    diagnosis_to_groups = None
     if "group_breakdown_matrices" in figures_config:
         dictionary_path = config.get("diagnosis_dictionary")
         if dictionary_path:
             try:
-                _, code_to_groups, _ = ontology.load_ontology(dictionary_path)
+                _, diagnosis_to_groups = ontology.load_ontology(dictionary_path)
             except Exception as e:
                 print(f"Warning: Could not load code_to_groups: {e}")
 
@@ -155,15 +155,11 @@ def generate_figures(df: pd.DataFrame, config: dict) -> None:
         error_fig.generate(df, name_mappings)
 
     if "group_breakdown_matrices" in figures_config:
-        dictionary_path = config.get("diagnosis_dictionary")
         group_fig = GroupBreakdownMatricesFigure(
             figures_config["group_breakdown_matrices"]
         )
         group_fig.generate(
-            df,
-            name_mappings,
-            dictionary_path=dictionary_path,
-            code_to_groups=code_to_groups,
+            name_mappings
         )
 
 
