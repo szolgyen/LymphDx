@@ -381,7 +381,6 @@ def _write_evaluation_outputs(
                     group_key,
                     filename,
                     group_terminology,
-                    dictionary_excel_path,
                     major_group,
                 )
 
@@ -406,7 +405,8 @@ def main(run_name: str | None = None) -> None:
 
     # If run_name is provided, construct paths; otherwise load from config
     if run_name:
-        predictions_jsonl = Path(f"outputs/{run_name}/ontology_{run_name}.jsonl")
+        date_str = run_name.split("_")[0] + "_" + run_name.split("_")[1]
+        predictions_jsonl = Path(f"outputs/{run_name}/ontology_{date_str}.jsonl")
         output_dir = Path(f"outputs/{run_name}/evaluation")
     else:
         logger.error("run_name must be provided to construct input/output paths.")

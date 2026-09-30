@@ -716,8 +716,9 @@ def main(run_name: str, config: dict) -> None:
 
     ontology_matching = config.get("ontology_matching", False)
 
-    input_file = f"outputs/{run_name}/predictions_{run_name}.jsonl"
-    output_file = f"outputs/{run_name}/ontology_{run_name}.jsonl"
+    date_str = run_name.split("_")[0] + "_" + run_name.split("_")[1]
+    input_file = f"outputs/{run_name}/predictions_{date_str}.jsonl"
+    output_file = f"outputs/{run_name}/ontology_{date_str}.jsonl"
     reports_dir = f"outputs/{run_name}/reports"
 
     ontology_list, diagnosis_to_groups = load_ontology(
