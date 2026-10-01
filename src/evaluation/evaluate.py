@@ -54,7 +54,7 @@ def run_evaluation(
         ontology_matching: Whether to run in ontology matching mode (skips score-based analysis).
         dictionary_excel_path: Path to Excel file containing diagnosis group mappings.
         major_group: Group to use for organizing confusion matrix axis labels (e.g., 'group_3', 'group_4').
-        code_to_groups: Mapping of diagnosis codes to their group classifications.
+        diagnosis_to_groups: Mapping of diagnosis names to their group classifications.
 
     Raises:
         ValueError: If group_terminology is not provided.
@@ -109,22 +109,24 @@ def run_evaluation(
 
     # Build container-level DataFrame
     logger.info("Building container-level DataFrame")
-    container_df = dataframe_builders.build_container_level_dataframe(report_df)
+    container_df = dataframe_builders.build_container_level_dataframe(
+        gt_df, prediction_map, params.get("TOP_K_VALUES")
+    )
 
     # Compute container-level group accuracy breakdowns
     if len(container_df) > 0:
         logger.info("Computing container-level accuracy metrics")
         container_group1_accuracy_df = analysis_functions.compute_accuracy_by_group(
-            container_df, "gt_container_group1", group_terminology
+            container_df, "gt_group1", group_terminology
         )
         container_group2_accuracy_df = analysis_functions.compute_accuracy_by_group(
-            container_df, "gt_container_group2", group_terminology
+            container_df, "gt_group2", group_terminology
         )
         container_group3_accuracy_df = analysis_functions.compute_accuracy_by_group(
-            container_df, "gt_container_group3", group_terminology
+            container_df, "gt_group3", group_terminology
         )
         container_group4_accuracy_df = analysis_functions.compute_accuracy_by_group(
-            container_df, "gt_container_group4", group_terminology
+            container_df, "gt_group4", group_terminology
         )
     else:
         logger.warning("No container data available; skipping container-level analysis")
@@ -370,15 +372,10 @@ def _write_evaluation_outputs(
                     output_dir / f"container_confusion_matrix_{sanitized_name}.png"
                 )
 
-                # Build a DataFrame with renamed columns for plotting
-                plot_df = container_df.copy()
-                plot_df["gt_group1"] = plot_df["gt_container_group1"]
-                plot_df["gt_group2"] = plot_df["gt_container_group2"]
-                plot_df["gt_group3"] = plot_df["gt_container_group3"]
-                plot_df["gt_group4"] = plot_df["gt_container_group4"]
-
+                # container_df already has gt_group* and pred_group* columns remapped from
+                # container-specific columns by build_container_level_dataframe()
                 plotting_generators.generate_diagnosis_group_confusion_matrix(
-                    plot_df,
+                    container_df,
                     group_key,
                     filename,
                     group_terminology,

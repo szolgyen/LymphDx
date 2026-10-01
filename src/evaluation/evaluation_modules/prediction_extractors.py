@@ -168,6 +168,40 @@ def extract_top_k_container_diagnosis_codes(
     return codes
 
 
+def extract_top_k_container_diagnosis_groups(
+    record: dict[str, Any], k: int, group_key: str
+) -> list[str] | None:
+    """Extract container diagnosis group categories for top-k ranked predictions.
+
+    Args:
+        record: Single prediction record.
+        k: Number of top predictions to extract (e.g., 3, 5).
+        group_key: Group key like "group_1", "group_2", or "group_3".
+
+    Returns:
+        List of group categories for top-k container predictions, or None if key is invalid.
+    """
+    # Normalize group key: "group_1" -> "valid_diagnosis_group_1"
+    column_name = f"valid_diagnosis_{group_key}"
+
+    container = extract_container_diagnosis(record)
+    if not container:
+        return None
+
+    valid_diagnoses = container.get("valid_diagnoses", {})
+    if not isinstance(valid_diagnoses, dict):
+        return None
+
+    groups = []
+    for rank in range(1, k + 1):
+        item = valid_diagnoses.get(f"top_{rank}")
+        if item:
+            group_value = item.get(column_name)
+            groups.append(group_value)
+
+    return groups if groups else None
+
+
 def extract_boolean_field(value: any) -> bool:
     """Convert various value types to boolean.
 

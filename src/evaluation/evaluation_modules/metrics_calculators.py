@@ -124,49 +124,62 @@ def compute_summary_accuracy_metrics(
         "primary_top1_accuracy": calculate_accuracy(report_df["top1_correct"]),
         "primary_top3_accuracy": calculate_accuracy(report_df["top3_correct"]),
         "primary_top5_accuracy": calculate_accuracy(report_df["top5_correct"]),
-        "differential_mentioned_accuracy": calculate_accuracy(
-            report_df["has_differential_correct"]
-        ),
-        "is_definitive_accuracy": calculate_accuracy(
-            report_df["is_definitive_correct"]
-        ),
-        "prior_malignancy_accuracy": calculate_accuracy(
-            report_df["has_prior_malignancy_correct"]
-        ),
-        "concurrent_malignancy_accuracy": calculate_accuracy(
-            report_df["has_concurrent_malignancy_correct"]
-        ),
-        "differential_mentioned_mcc": calculate_matthews_correlation_coefficient(
-            report_df["gt_has_differential"], report_df["pred_has_differential"]
-        ),
-        "is_definitive_mcc": calculate_matthews_correlation_coefficient(
-            report_df["gt_is_definitive"], report_df["pred_is_definitive"]
-        ),
-        "prior_malignancy_mcc": calculate_matthews_correlation_coefficient(
-            report_df["gt_has_prior_malignancy"], report_df["pred_has_prior_malignancy"]
-        ),
-        "concurrent_malignancy_mcc": calculate_matthews_correlation_coefficient(
-            report_df["gt_has_concurrent_malignancy"],
-            report_df["pred_has_concurrent_malignancy"],
-        ),
     }
 
+    # Add boolean condition metrics only if the columns exist (report-level, not container-level)
+    if "has_differential_correct" in report_df.columns:
+        result["differential_mentioned_accuracy"] = calculate_accuracy(
+            report_df["has_differential_correct"]
+        )
+    if "is_definitive_correct" in report_df.columns:
+        result["is_definitive_accuracy"] = calculate_accuracy(
+            report_df["is_definitive_correct"]
+        )
+    if "has_prior_malignancy_correct" in report_df.columns:
+        result["prior_malignancy_accuracy"] = calculate_accuracy(
+            report_df["has_prior_malignancy_correct"]
+        )
+    if "has_concurrent_malignancy_correct" in report_df.columns:
+        result["concurrent_malignancy_accuracy"] = calculate_accuracy(
+            report_df["has_concurrent_malignancy_correct"]
+        )
+
+    # Add MCC metrics only if the columns exist
+    if all(col in report_df.columns for col in ["gt_has_differential", "pred_has_differential"]):
+        result["differential_mentioned_mcc"] = calculate_matthews_correlation_coefficient(
+            report_df["gt_has_differential"], report_df["pred_has_differential"]
+        )
+    if all(col in report_df.columns for col in ["gt_is_definitive", "pred_is_definitive"]):
+        result["is_definitive_mcc"] = calculate_matthews_correlation_coefficient(
+            report_df["gt_is_definitive"], report_df["pred_is_definitive"]
+        )
+    if all(col in report_df.columns for col in ["gt_has_prior_malignancy", "pred_has_prior_malignancy"]):
+        result["prior_malignancy_mcc"] = calculate_matthews_correlation_coefficient(
+            report_df["gt_has_prior_malignancy"], report_df["pred_has_prior_malignancy"]
+        )
+    if all(col in report_df.columns for col in ["gt_has_concurrent_malignancy", "pred_has_concurrent_malignancy"]):
+        result["concurrent_malignancy_mcc"] = calculate_matthews_correlation_coefficient(
+            report_df["gt_has_concurrent_malignancy"],
+            report_df["pred_has_concurrent_malignancy"],
+        )
+
     # Add container accuracy metrics (filter to rows with valid container codes)
-    container_valid_mask = report_df["container_top1_correct"].notna()
-    if container_valid_mask.any():
-        result["container_top1_accuracy"] = calculate_accuracy(
-            report_df.loc[container_valid_mask, "container_top1_correct"]
-        )
-        result["container_top3_accuracy"] = calculate_accuracy(
-            report_df.loc[container_valid_mask, "container_top3_correct"]
-        )
-        result["container_top5_accuracy"] = calculate_accuracy(
-            report_df.loc[container_valid_mask, "container_top5_correct"]
-        )
-    else:
-        result["container_top1_accuracy"] = None
-        result["container_top3_accuracy"] = None
-        result["container_top5_accuracy"] = None
+    if "container_top1_correct" in report_df.columns:
+        container_valid_mask = report_df["container_top1_correct"].notna()
+        if container_valid_mask.any():
+            result["container_top1_accuracy"] = calculate_accuracy(
+                report_df.loc[container_valid_mask, "container_top1_correct"]
+            )
+            result["container_top3_accuracy"] = calculate_accuracy(
+                report_df.loc[container_valid_mask, "container_top3_correct"]
+            )
+            result["container_top5_accuracy"] = calculate_accuracy(
+                report_df.loc[container_valid_mask, "container_top5_correct"]
+            )
+        else:
+            result["container_top1_accuracy"] = None
+            result["container_top3_accuracy"] = None
+            result["container_top5_accuracy"] = None
 
     # Add dynamic group-based metrics
     for group_key, group_name in group_terminology.items():
